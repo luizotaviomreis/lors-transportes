@@ -1,0 +1,2397 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>LORS Transportes — Gestão Financeira</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#2d4a8a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="LORS Transportes">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --ink: #0f0e11;
+  --paper: #f5f3ee;
+  --paper2: #edeae3;
+  --accent: #2d4a8a;
+  --accent2: #c84b31;
+  --green: #1a6b45;
+  --green-lt: #e8f5ef;
+  --red: #b72b2b;
+  --red-lt: #fdeaea;
+  --yellow: #e8a020;
+  --yellow-lt: #fef8ec;
+  --blue-lt: #eef2fb;
+  --border: #d4cfc5;
+  --muted: #7a7570;
+  --shadow: 0 2px 12px rgba(15,14,17,.08);
+  --r: 6px;
+  --font-head: 'Syne', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  min-height: 100vh;
+}
+
+/* ── Layout ── */
+.app { display: flex; min-height: 100vh; }
+
+.sidebar {
+  width: 220px;
+  min-height: 100vh;
+  background: var(--ink);
+  color: var(--paper);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  flex-shrink: 0;
+}
+
+.logo {
+  padding: 24px 20px 20px;
+  border-bottom: 1px solid rgba(255,255,255,.1);
+}
+.logo-main {
+  font-family: var(--font-head);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -.5px;
+  color: #fff;
+  line-height: 1.1;
+}
+.logo-sub {
+  font-size: 10px;
+  color: rgba(255,255,255,.4);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  margin-top: 3px;
+}
+
+.nav { padding: 16px 0; flex: 1; }
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: rgba(255,255,255,.55);
+  border-left: 2px solid transparent;
+  transition: all .15s;
+  user-select: none;
+}
+.nav-item:hover { color: #fff; background: rgba(255,255,255,.06); }
+.nav-item.active { color: #fff; border-left-color: var(--yellow); background: rgba(255,255,255,.08); }
+.nav-icon { width: 16px; text-align: center; font-size: 14px; }
+
+.nav-section {
+  padding: 14px 20px 6px;
+  font-size: 9px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.25);
+}
+
+.main { flex: 1; min-width: 0; }
+
+.topbar {
+  background: var(--paper);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.page-title {
+  font-family: var(--font-head);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -.4px;
+}
+.page-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--r);
+  border: 1.5px solid var(--border);
+  background: #fff;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink);
+  transition: all .15s;
+}
+.btn:hover { border-color: var(--ink); }
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.btn-primary:hover { background: #223d75; }
+.btn-success {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+.btn-success:hover { background: #145437; }
+.btn-danger { color: var(--red); border-color: var(--red-lt); }
+.btn-danger:hover { background: var(--red-lt); }
+.btn-sm { padding: 5px 10px; font-size: 11px; }
+
+.content { padding: 24px 28px; }
+
+/* ── Cards ── */
+.cards-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+.card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 16px;
+}
+.card-label { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.card-value { font-family: var(--font-head); font-size: 22px; font-weight: 700; }
+.card-value.pos { color: var(--green); }
+.card-value.neg { color: var(--red); }
+.card-value.neu { color: var(--accent); }
+.card-delta { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+/* ── Tabs ── */
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+.tab {
+  padding: 10px 18px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all .15s;
+  user-select: none;
+}
+.tab:hover { color: var(--ink); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 500; }
+
+/* ── Tabela lançamentos ── */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.section-title {
+  font-family: var(--font-head);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.table-wrap {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  background: var(--paper2);
+  padding: 9px 12px;
+  text-align: left;
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  white-space: nowrap;
+}
+thead th.r { text-align: right; }
+tbody tr { border-bottom: 1px solid #f0ede8; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: #faf9f7; }
+tbody td {
+  padding: 9px 12px;
+  font-size: 12px;
+  vertical-align: middle;
+}
+tbody td.r { text-align: right; font-variant-numeric: tabular-nums; }
+.valor-pos { color: var(--green); font-weight: 500; }
+.valor-neg { color: var(--red); font-weight: 500; }
+
+/* Badges */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .04em;
+}
+.badge-receita       { background: var(--green-lt); color: var(--green); }
+.badge-administrativo{ background: var(--blue-lt); color: var(--accent); }
+.badge-implemento    { background: #f3f0ff; color: #5b21b6; }
+.badge-manutencao    { background: #fde8e0; color: #a03010; }
+.badge-despvar       { background: #fff7ed; color: #9a3412; }
+.badge-pessoal       { background: #eff6ff; color: #1d4ed8; }
+.badge-seguro        { background: var(--yellow-lt); color: #92400e; }
+.badge-caminhao      { background: #fdf4ff; color: #7e22ce; }
+.badge-impostos      { background: #fef9c3; color: #854d0e; }
+.badge-outros        { background: var(--paper2); color: var(--muted); }
+
+/* ── Formulário ── */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15,14,17,.55);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: #fff;
+  border-radius: 10px;
+  padding: 28px;
+  width: 500px;
+  max-width: 95vw;
+  box-shadow: 0 20px 60px rgba(0,0,0,.2);
+  animation: slideUp .2s ease;
+}
+@keyframes slideUp { from { opacity:0; transform:translateY(16px); } }
+.modal-title {
+  font-family: var(--font-head);
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-close { cursor: pointer; color: var(--muted); font-size: 18px; line-height: 1; }
+.modal-close:hover { color: var(--ink); }
+
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group.full { grid-column: 1/-1; }
+label { font-size: 11px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+input, select, textarea {
+  padding: 9px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--paper);
+  transition: border-color .15s;
+  outline: none;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--accent); background: #fff; }
+textarea { resize: vertical; min-height: 60px; }
+
+.form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+/* ── DRE ── */
+.dre-table table { font-size: 12px; }
+.dre-section td { background: var(--ink)!important; color: #fff!important; font-weight: 700; font-family: var(--font-head); font-size: 12px; padding: 8px 12px!important; }
+.dre-subsection td { background: var(--paper2)!important; color: var(--muted)!important; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; font-weight: 500; }
+.dre-resultado td { background: var(--blue-lt)!important; color: var(--accent)!important; font-weight: 700; }
+.dre-ebitda td { background: #e8f0fc!important; color: #1a3a7a!important; font-weight: 700; font-size: 13px; }
+.dre-lucro td { background: var(--green-lt)!important; color: var(--green)!important; font-weight: 700; font-size: 13px; }
+.dre-prejuizo td { background: var(--red-lt)!important; color: var(--red)!important; font-weight: 700; font-size: 13px; }
+.dre-blank { height: 6px!important; }
+.dre-blank td { padding: 3px!important; background: var(--paper)!important; }
+.dre-indent td:first-child { padding-left: 28px!important; }
+
+/* ── Charts ── */
+.charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+.chart-card { background: #fff; border: 1px solid var(--border); border-radius: var(--r); padding: 18px; }
+.chart-title { font-family: var(--font-head); font-size: 13px; font-weight: 600; margin-bottom: 14px; }
+
+/* ── Fluxo futuro ── */
+.fc-table th.mes-header { background: var(--accent); color: #fff; text-align: center; font-size: 11px; }
+.fc-row-receita td { color: var(--green); }
+.fc-row-saida td:not(:first-child) { color: var(--red); }
+.fc-row-saldo td { font-weight: 700; }
+.fc-row-saldo .pos { color: var(--green); }
+.fc-row-saldo .neg { color: var(--red); }
+.fc-total td { background: var(--ink)!important; color: #fff!important; font-weight: 700; }
+
+/* ── Toasts ── */
+.toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  background: var(--ink);
+  color: #fff;
+  padding: 12px 18px;
+  border-radius: var(--r);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: slideIn .2s ease;
+  box-shadow: var(--shadow);
+}
+@keyframes slideIn { from { opacity:0; transform:translateX(20px); } }
+.toast.success { border-left: 3px solid #4ade80; }
+.toast.error   { border-left: 3px solid #f87171; }
+
+/* Export btn */
+.export-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+/* Recorrência badge */
+.rec-badge { font-size: 9px; background: var(--yellow-lt); color: var(--yellow); padding: 1px 6px; border-radius: 99px; vertical-align: middle; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .sidebar { display: none; }
+  .cards-row { grid-template-columns: 1fr 1fr; }
+  .charts-row { grid-template-columns: 1fr; }
+}
+
+/* ── Login ── */
+.login-overlay {
+  position: fixed; inset: 0;
+  background: var(--ink);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999;
+}
+.login-box {
+  background: #1a1a2e;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 12px;
+  padding: 44px 40px 36px;
+  width: 340px;
+  display: flex; flex-direction: column; align-items: center; gap: 0;
+  box-shadow: 0 24px 60px rgba(0,0,0,.6);
+}
+.login-logo {
+  font-family: var(--font-head);
+  font-size: 22px; font-weight: 800; color: #fff;
+  letter-spacing: -.5px; text-align: center;
+}
+.login-tagline {
+  font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+  color: rgba(255,255,255,.35); margin-top: 4px; margin-bottom: 32px;
+}
+.login-label {
+  font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+  color: rgba(255,255,255,.4); align-self: flex-start; margin-bottom: 6px;
+}
+.login-input {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1.5px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.05);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 20px; letter-spacing: .3em; text-align: center;
+  outline: none; transition: border-color .15s;
+}
+.login-input:focus { border-color: var(--yellow); }
+.login-btn {
+  margin-top: 20px; width: 100%;
+  padding: 12px;
+  background: var(--accent); border: none;
+  border-radius: 8px; color: #fff;
+  font-family: var(--font-head); font-size: 13px; font-weight: 700;
+  letter-spacing: .06em; cursor: pointer; transition: background .15s;
+}
+.login-btn:hover { background: #223d75; }
+.login-error {
+  margin-top: 12px; font-size: 11px; color: var(--accent2);
+  min-height: 16px; text-align: center;
+}
+.login-hint { margin-top: 24px; font-size: 10px; color: rgba(255,255,255,.18); text-align: center; }
+
+/* ── Google Drive Sync ── */
+.sync-footer {
+  padding: 14px 16px;
+  border-top: 1px solid rgba(255,255,255,.08);
+  margin-top: auto;
+}
+.sync-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border-radius: 6px;
+  cursor: pointer; transition: background .15s;
+}
+.sync-row:hover { background: rgba(255,255,255,.06); }
+.sync-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(255,255,255,.2);
+  transition: background .3s;
+}
+.sync-dot.connected  { background: #4ade80; box-shadow: 0 0 6px #4ade8088; }
+.sync-dot.syncing    { background: var(--yellow); animation: pulse 1s infinite; }
+.sync-dot.error      { background: #f87171; }
+.sync-label { font-size: 10px; color: rgba(255,255,255,.45); flex: 1; }
+.sync-label.connected { color: #4ade80; }
+.sync-label.error     { color: #f87171; }
+.sync-btn-sm {
+  font-size: 9px; padding: 3px 7px;
+  border-radius: 4px; border: 1px solid rgba(255,255,255,.15);
+  background: transparent; color: rgba(255,255,255,.4);
+  cursor: pointer; transition: all .12s;
+}
+.sync-btn-sm:hover { border-color: rgba(255,255,255,.4); color: #fff; }
+
+/* Google Drive config modal */
+.gdrive-setup {
+  background: #f8f6ff; border: 1.5px solid #7c3aed33;
+  border-radius: 8px; padding: 16px; margin-bottom: 16px;
+  font-size: 12px; color: #4c1d95; line-height: 1.6;
+}
+.gdrive-setup ol { padding-left: 18px; margin-top: 6px; }
+.gdrive-setup li { margin-bottom: 4px; }
+.gdrive-setup code {
+  background: #ede9fe; border-radius: 3px;
+  padding: 1px 5px; font-family: var(--font-mono); font-size: 11px;
+}
+.gdrive-copy-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 12px; border-radius: 5px;
+  background: #7c3aed; border: none; color: #fff;
+  font-family: var(--font-mono); font-size: 11px; cursor: pointer;
+  margin-top: 8px; transition: background .12s;
+}
+.gdrive-copy-btn:hover { background: #6d28d9; }
+.gdrive-url-row { display: flex; gap: 8px; align-items: flex-end; }
+.gdrive-url-row input { flex: 1; }
+.gdrive-test-result {
+  margin-top: 8px; padding: 8px 12px; border-radius: 5px;
+  font-size: 11px; display: none;
+}
+.gdrive-test-result.ok  { background: var(--green-lt); color: var(--green); display: block; }
+.gdrive-test-result.err { background: var(--red-lt);   color: var(--red);   display: block; }
+</style>
+</head>
+<body>
+
+<!-- ── Login ── -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <div class="login-logo"><img src="/logo.png" alt="LORS Transportes" style="width:180px;filter:invert(1)"></div>
+    <div class="login-tagline">Gestão Financeira</div>
+    <div class="login-label">PIN de acesso</div>
+    <input class="login-input" type="password" id="pinInput" maxlength="6" placeholder="••••" autocomplete="off">
+    <button class="login-btn" onclick="checkPin()">Entrar</button>
+    <div class="login-error" id="loginError"></div>
+    <div class="login-hint">Acesso exclusivo LORS Transportes</div>
+  </div>
+</div>
+
+<div class="app" id="mainApp" style="display:none">
+<!-- ── Sidebar ── -->
+<aside class="sidebar">
+  <div class="logo">
+    <img src="/logo.png" alt="LORS Transportes" style="width:150px;filter:invert(1);display:block;margin:0 auto 6px">
+    <div class="logo-sub">Gestão Financeira</div>
+  </div>
+  <nav class="nav">
+    <div class="nav-section">Lançamentos</div>
+    <div class="nav-item active" onclick="showPage('lancamentos')">
+      <span class="nav-icon">◈</span> Lançamentos
+    </div>
+    <div class="nav-item" onclick="showPage('recorrentes')">
+      <span class="nav-icon">↺</span> Recorrentes
+    </div>
+    <div class="nav-section">Relatórios</div>
+    <div class="nav-item" onclick="showPage('dre')">
+      <span class="nav-icon">▦</span> DRE
+    </div>
+    <div class="nav-item" onclick="showPage('fluxo')">
+      <span class="nav-icon">⟿</span> Fluxo de Caixa
+    </div>
+    <div class="nav-item" onclick="showPage('graficos')">
+      <span class="nav-icon">◉</span> Gráficos
+    </div>
+    <div class="nav-section">Ferramentas</div>
+    <div class="nav-item" onclick="showPage('socios')">
+      <span class="nav-icon">⊙</span> Sócios
+    </div>
+    <div class="nav-item" onclick="showPage('orcamento')">
+      <span class="nav-icon">⊞</span> Orçamento
+    </div>
+  </nav>
+
+  <!-- Google Drive Sync footer -->
+  <div class="sync-footer">
+    <div class="sync-row" onclick="abrirGDriveConfig()">
+      <div class="sync-dot" id="syncDot"></div>
+      <div class="sync-label" id="syncLabel">Google Drive</div>
+      <button class="sync-btn-sm" onclick="event.stopPropagation();sincronizarGDrive()" id="syncNowBtn" title="Sincronizar agora" style="display:none">↺</button>
+    </div>
+    <div style="font-size:9px;color:rgba(255,255,255,.2);padding:0 10px;margin-top:2px" id="syncLastTime"></div>
+  </div>
+</aside>
+
+<!-- ── Main ── -->
+<div class="main">
+  <div class="topbar">
+    <div>
+      <div class="page-title" id="pageTitle">Lançamentos</div>
+      <div class="page-sub" id="pageSub">Receitas e despesas cadastradas</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn" onclick="backupDados()" title="Exportar dados em JSON">⬇ Backup</button>
+      <button class="btn" onclick="restaurarDados()" title="Importar backup JSON">↑ Restaurar</button>
+      <button class="btn" onclick="exportarExcel()">⬇ CSV</button>
+      <button class="btn" onclick="alterarPin()" title="Alterar PIN de acesso">🔑 PIN</button>
+      <button class="btn btn-primary" onclick="abrirModal()">+ Novo Lançamento</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- KPIs -->
+    <div class="cards-row" id="kpiRow">
+      <div class="card"><div class="card-label">Receita Total</div><div class="card-value pos" id="kpiReceita">R$ 0</div><div class="card-delta" id="kpiReceitaDelta">período registrado</div></div>
+      <div class="card"><div class="card-label">Total Saídas</div><div class="card-value neg" id="kpiSaidas">R$ 0</div><div class="card-delta">despesas e custos</div></div>
+      <div class="card"><div class="card-label">Resultado Líquido</div><div class="card-value neu" id="kpiResultado">R$ 0</div><div class="card-delta">receita - saídas</div></div>
+    </div>
+
+    <!-- Páginas -->
+    <div id="pageLancamentos">
+      <div class="tabs">
+        <div class="tab active" onclick="filterTab('todos',this)">Todos</div>
+        <div class="tab" onclick="filterTab('receita',this)">Receitas</div>
+        <div class="tab" onclick="filterTab('despvar',this)">Desp. Variável</div>
+        <div class="tab" onclick="filterTab('manutencao',this)">Manutenção</div>
+        <div class="tab" onclick="filterTab('pessoal',this)">Pessoal</div>
+        <div class="tab" onclick="filterTab('administrativo',this)">Administrativo</div>
+        <div class="tab" onclick="filterTab('implemento',this)">Implemento</div>
+        <div class="tab" onclick="filterTab('caminhao',this)">Caminhão</div>
+        <div class="tab" onclick="filterTab('seguro',this)">Seguro</div>
+        <div class="tab" onclick="filterTab('impostos',this)">Impostos</div>
+      </div>
+      <div style="display:flex;gap:10px;margin:12px 0;flex-wrap:wrap;align-items:center">
+        <input type="text" id="searchDesc" placeholder="🔍 Buscar por descrição..." oninput="currentSearch=this.value;renderLancamentos()" style="flex:1;min-width:160px;padding:7px 12px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--font-mono);font-size:12px;background:#fff;outline:none">
+        <select id="filterMes" onchange="currentMes=this.value;renderLancamentos()" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--font-mono);font-size:12px;background:#fff">
+          <option value="">Todos os meses</option>
+        </select>
+        <select id="filterPagou" onchange="currentPagou=this.value;renderLancamentos()" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--font-mono);font-size:12px;background:#fff">
+          <option value="">Todos — Pago por</option>
+          <option value="LORS">LORS</option>
+          <option value="Otávio">Otávio</option>
+          <option value="Rodrigo">Rodrigo</option>
+        </select>
+        <span id="filterInfo" style="font-size:11px;color:var(--muted)"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Descrição</th>
+              <th>Categoria</th>
+              <th>Pago por</th>
+              <th class="r">Valor (R$)</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tbodyLancamentos"></tbody>
+          <tfoot id="tfootLancamentos"></tfoot>
+        </table>
+      </div>
+      <div id="catSummary"></div>
+    </div>
+
+    <div id="pageRecorrentes" style="display:none">
+      <div class="section-header">
+        <div class="section-title">Despesas Recorrentes</div>
+        <button class="btn btn-primary btn-sm" onclick="abrirModalRecorrente()">+ Nova Recorrente</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Descrição</th>
+              <th>Categoria</th>
+              <th>Frequência</th>
+              <th>Dia/mês</th>
+              <th>Início</th>
+              <th>Fim</th>
+              <th class="r">Valor (R$)</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tbodyRecorrentes"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="pageDRE" style="display:none">
+      <div class="export-bar">
+        <button class="btn btn-sm" onclick="exportarDRE()">⬇ Exportar DRE</button>
+        <select id="dreAno" onchange="renderDRE()" style="padding:5px 10px;font-size:12px;">
+          <option value="2025">2025</option>
+          <option value="2026" selected>2026</option>
+        </select>
+      </div>
+      <div class="table-wrap dre-table" id="dreContainer"></div>
+    </div>
+
+    <div id="pageFluxo" style="display:none">
+      <div class="export-bar">
+        <button class="btn btn-sm" onclick="exportarFluxo()">⬇ Exportar Fluxo</button>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);text-transform:none;letter-spacing:0;">
+          Faturamento quinzenal estimado: 
+          <input type="number" id="fatEstimado" value="85000" style="width:120px;padding:5px 10px;font-size:12px;" onchange="renderFluxo()">
+        </label>
+      </div>
+      <div class="table-wrap" id="fluxoContainer"></div>
+    </div>
+
+    <div id="pageGraficos" style="display:none">
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-title">Receita vs. Saídas por Mês</div>
+          <div style="position:relative;height:220px"><canvas id="chartRecSai"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Composição das Saídas</div>
+          <div style="position:relative;height:220px"><canvas id="chartComposicao"></canvas></div>
+        </div>
+      </div>
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-title">Saldo Acumulado</div>
+          <div style="position:relative;height:220px"><canvas id="chartSaldo"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Projeção de Caixa (próximos 9 meses)</div>
+          <div style="position:relative;height:220px"><canvas id="chartProjecao"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Sócios ── -->
+    <div id="pageSocios" style="display:none">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px" id="sociosCards"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div>
+          <div style="font-family:var(--font-head);font-size:13px;font-weight:700;margin-bottom:10px;color:var(--ink)">Despesas pagas pelos sócios</div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Sócio</th><th class="r">Valor</th></tr></thead>
+            <tbody id="tbodySociosDespesas"></tbody>
+          </table></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div style="font-family:var(--font-head);font-size:13px;font-weight:700;color:var(--ink)">Histórico de pagamentos</div>
+            <button class="btn btn-primary btn-sm" onclick="abrirModalPagSocio()">+ Registrar Pagamento</button>
+          </div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Data</th><th>Sócio</th><th>Tipo</th><th>Descrição</th><th class="r">Valor</th><th></th></tr></thead>
+            <tbody id="tbodySociosPag"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Orçamento ── -->
+    <div id="pageOrcamento" style="display:none">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+
+        <!-- Parâmetros -->
+        <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:22px">
+          <div style="font-family:var(--font-head);font-size:14px;font-weight:700;margin-bottom:18px;color:var(--ink)">Parâmetros da Viagem</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="form-group"><label>Distância ida (km)</label><input type="number" id="orcDistancia" value="350" oninput="calcOrcamento()"><small id="orcKmTotal" style="color:var(--muted);font-size:11px"></small></div>
+            <div class="form-group"><label>Toneladas / viagem</label><input type="number" id="orcToneladas" value="52" step="0.5" oninput="calcOrcamento()"></div>
+            <div class="form-group"><label>Preço / tonelada (R$)</label><input type="number" id="orcPrecTon" value="170" step="0.5" oninput="calcOrcamento()"></div>
+            <div class="form-group"><label>Consumo (km/L)</label><input type="number" id="orcConsumo" value="1.95" step="0.05" oninput="calcOrcamento()"></div>
+            <div class="form-group"><label>Diesel (R$/L)</label><input type="number" id="orcDiesel" value="6.50" step="0.01" oninput="calcOrcamento()"></div>
+            <div class="form-group"><label>Arla 32 (R$/L)</label><input type="number" id="orcArla" value="5.00" step="0.01" oninput="calcOrcamento()"></div>
+            <div class="form-group"><label>Pedágio / viagem (R$)</label><input type="number" id="orcPedagio" value="900" oninput="calcOrcamento()"></div>
+            <div class="form-group"><label>Viagens por mês</label><input type="number" id="orcViagens" value="10" oninput="calcOrcamento()"></div>
+          </div>
+          <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;color:var(--muted);margin-bottom:10px">Custos Fixos Mensais</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div class="form-group"><label>Pessoal (R$)</label><input type="number" id="orcFixPessoal" value="10000" oninput="calcOrcamento()"></div>
+              <div class="form-group"><label>Administrativo (R$)</label><input type="number" id="orcFixAdm" value="2500" oninput="calcOrcamento()"></div>
+              <div class="form-group"><label>Seguro (R$)</label><input type="number" id="orcFixSeguro" value="2812" oninput="calcOrcamento()"></div>
+              <div class="form-group"><label>Impostos (R$)</label><input type="number" id="orcFixImpostos" value="2741" oninput="calcOrcamento()"></div>
+              <div class="form-group"><label>Manutenção (R$)</label><input type="number" id="orcFixManutencao" value="0" oninput="calcOrcamento()"></div>
+            </div>
+          </div>
+          <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;color:var(--muted);margin-bottom:10px">Financiamentos Mensais</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div class="form-group"><label>Caminhão (R$)</label><input type="number" id="orcFinCaminhao" value="16000" oninput="calcOrcamento()"></div>
+              <div class="form-group"><label>Implemento (R$)</label><input type="number" id="orcFinImplemento" value="10372" oninput="calcOrcamento()"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Resultado por viagem -->
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:22px">
+            <div style="font-family:var(--font-head);font-size:14px;font-weight:700;margin-bottom:16px;color:var(--ink)">Por Viagem</div>
+            <div style="display:flex;flex-direction:column;gap:8px" id="orcPorViagem"></div>
+          </div>
+          <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:22px">
+            <div style="font-family:var(--font-head);font-size:14px;font-weight:700;margin-bottom:16px;color:var(--ink)">Projeção Mensal</div>
+            <div style="display:flex;flex-direction:column;gap:8px" id="orcMensal"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Resultado final + Breakeven -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+        <div id="orcCardResultado" style="border-radius:var(--r);padding:20px"></div>
+        <div id="orcCardBreakeven" style="background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:20px"></div>
+        <div id="orcCardTonKm" style="background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:20px"></div>
+      </div>
+    </div>
+
+  </div><!-- content -->
+</div><!-- main -->
+</div><!-- app -->
+
+<!-- ── Modal Lançamento ── -->
+<div class="modal-overlay" id="modalOverlay">
+<div class="modal">
+  <div class="modal-title">
+    <span id="modalTitleText">Novo Lançamento</span>
+    <span class="modal-close" onclick="fecharModal()">✕</span>
+  </div>
+  <form id="formLancamento" onsubmit="salvarLancamento(event)">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Data</label>
+        <input type="date" id="fData" required>
+      </div>
+      <div class="form-group">
+        <label>Tipo</label>
+        <select id="fTipo" required onchange="updateCategorias()">
+          <option value="receita">Receita</option>
+          <option value="saida">Saída</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label>Descrição</label>
+        <input type="text" id="fDescricao" placeholder="Ex: Faturamento Dissenha Florestal" required>
+      </div>
+      <div class="form-group">
+        <label>Categoria</label>
+        <select id="fCategoria" required></select>
+      </div>
+      <div class="form-group">
+        <label>Valor (R$)</label>
+        <input type="number" id="fValor" step="0.01" min="0.01" placeholder="0,00" required>
+      </div>
+      <div class="form-group">
+        <label>Quem Pagou</label>
+        <select id="fQuemPagou">
+          <option value="LORS">LORS</option>
+          <option value="Otávio">Otávio</option>
+          <option value="Rodrigo">Rodrigo</option>
+          <option value="Outro">Outro</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Observação (opcional)</label>
+        <input type="text" id="fObs" placeholder="Informações adicionais...">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn" onclick="fecharModal()">Cancelar</button>
+      <button type="submit" class="btn btn-success">Salvar Lançamento</button>
+    </div>
+  </form>
+</div>
+</div>
+
+<!-- ── Modal Recorrente ── -->
+<div class="modal-overlay" id="modalRecOverlay">
+<div class="modal">
+  <div class="modal-title">
+    <span>Nova Despesa Recorrente</span>
+    <span class="modal-close" onclick="fecharModalRec()">✕</span>
+  </div>
+  <form id="formRecorrente" onsubmit="salvarRecorrente(event)">
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Descrição</label>
+        <input type="text" id="rDescricao" placeholder="Ex: Diesel e Arla — Cacilda" required>
+      </div>
+      <div class="form-group">
+        <label>Categoria</label>
+        <select id="rCategoria" required>
+          <option value="despvar">Despesas Variável</option>
+          <option value="manutencao">Manutenção</option>
+          <option value="pessoal">Pessoal</option>
+          <option value="administrativo">Administrativo</option>
+          <option value="implemento">Implemento</option>
+          <option value="caminhao">Caminhão</option>
+          <option value="seguro">Seguro</option>
+          <option value="impostos">Impostos</option>
+          <option value="outros">Outros</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Frequência</label>
+        <select id="rFrequencia" required>
+          <option value="mensal">Mensal</option>
+          <option value="quinzenal">Quinzenal</option>
+          <option value="bimestral">Bimestral</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Dia do mês</label>
+        <input type="number" id="rDia" min="1" max="31" value="15" required>
+      </div>
+      <div class="form-group">
+        <label>Data início</label>
+        <input type="month" id="rInicio" required>
+      </div>
+      <div class="form-group">
+        <label>Data fim</label>
+        <input type="month" id="rFim">
+      </div>
+      <div class="form-group">
+        <label>Valor (R$)</label>
+        <input type="number" id="rValor" step="0.01" min="0" placeholder="0,00" required>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn" onclick="fecharModalRec()">Cancelar</button>
+      <button type="submit" class="btn btn-success">Salvar</button>
+    </div>
+  </form>
+</div>
+</div>
+
+<!-- ── Modal Pagamento Sócio ── -->
+<div class="modal-overlay" id="modalPagSocioOverlay">
+<div class="modal">
+  <div class="modal-title">
+    <span>Registrar Pagamento a Sócio</span>
+    <span class="modal-close" onclick="fecharModalPagSocio()">✕</span>
+  </div>
+  <form id="formPagSocio" onsubmit="salvarPagSocio(event)">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Sócio</label>
+        <select id="psSocio" required>
+          <option value="">Selecione...</option>
+          <option value="Otávio">Otávio</option>
+          <option value="Rodrigo">Rodrigo</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Tipo</label>
+        <select id="psTipo" required>
+          <option value="reembolso">Reembolso (saída LORS)</option>
+          <option value="aporte">Aporte (entrada LORS)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Data</label>
+        <input type="date" id="psData" required>
+      </div>
+      <div class="form-group">
+        <label>Categoria</label>
+        <select id="psCategoria" required>
+          <option value="pessoal">Pessoal</option>
+          <option value="administrativo">Administrativo</option>
+          <option value="despvar">Despesas Variável</option>
+          <option value="manutencao">Manutenção</option>
+          <option value="implemento">Implemento</option>
+          <option value="caminhao">Caminhão</option>
+          <option value="seguro">Seguro</option>
+          <option value="impostos">Impostos</option>
+          <option value="outros">Outros</option>
+        </select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Descrição</label>
+        <input type="text" id="psDesc" placeholder="Ex: Reembolso despesas fevereiro" required>
+      </div>
+      <div class="form-group">
+        <label>Valor (R$)</label>
+        <input type="number" id="psValor" step="0.01" min="0.01" placeholder="0,00" required>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn" onclick="fecharModalPagSocio()">Cancelar</button>
+      <button type="submit" class="btn btn-success">Salvar</button>
+    </div>
+  </form>
+</div>
+</div>
+
+<!-- ── Modal Google Drive ── -->
+<div class="modal-overlay" id="modalGDrive">
+<div class="modal" style="width:560px">
+  <div class="modal-title">
+    <span>☁ Configurar Google Drive</span>
+    <span class="modal-close" onclick="fecharGDriveConfig()">✕</span>
+  </div>
+
+  <div class="gdrive-setup">
+    <strong>Como configurar (1 vez só):</strong>
+    <ol>
+      <li>Abra o <strong>Google Sheets</strong> e crie uma planilha nova chamada <code>LORS Transportes</code></li>
+      <li>No menu, vá em <strong>Extensões → Apps Script</strong></li>
+      <li>Apague o código existente e cole o script abaixo</li>
+      <li>Clique em <strong>Implantar → Nova implantação</strong>, tipo: <em>App da Web</em>, acesso: <em>Qualquer pessoa</em></li>
+      <li>Copie a <strong>URL da implantação</strong> e cole no campo abaixo</li>
+    </ol>
+    <button class="gdrive-copy-btn" onclick="copiarAppsScript()">⬇ Copiar código do Apps Script</button>
+  </div>
+
+  <div class="form-group" style="margin-bottom:14px">
+    <label>URL do Apps Script (Web App)</label>
+    <div class="gdrive-url-row">
+      <input type="url" id="gdriveUrl" placeholder="https://script.google.com/macros/s/..." autocomplete="off">
+      <button class="btn btn-sm" onclick="testarConexao()">Testar</button>
+    </div>
+    <div class="gdrive-test-result" id="gdriveTestResult"></div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+    <label style="display:flex;align-items:center;gap:6px;text-transform:none;letter-spacing:0;font-size:12px;color:var(--ink)">
+      <input type="checkbox" id="gdriveSyncAuto" checked>
+      Sincronizar automaticamente ao salvar
+    </label>
+  </div>
+
+  <div class="form-actions">
+    <button class="btn btn-danger btn-sm" onclick="desconectarGDrive()">Desconectar</button>
+    <div style="flex:1"></div>
+    <button class="btn" onclick="fecharGDriveConfig()">Cancelar</button>
+    <button class="btn btn-primary" onclick="salvarGDriveConfig()">Salvar e Conectar</button>
+  </div>
+</div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// STORAGE & PIN
+// ═══════════════════════════════════════════════════════════════
+const STORAGE_KEY = 'lors_financeiro_v1';
+
+function saveData() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios }));
+  if (gdriveConfig.url && gdriveConfig.autoSync !== false) {
+    sincronizarGDrive(true);
+  }
+}
+
+function loadData() {
+  try { const d = localStorage.getItem(STORAGE_KEY); return d ? JSON.parse(d) : null; } catch(e) { return null; }
+}
+
+function checkPin() {
+  const pin = document.getElementById('pinInput').value;
+  const saved = localStorage.getItem('lors_pin') || '1234';
+  if (pin === saved) {
+    document.getElementById('loginOverlay').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'flex';
+    initApp();
+  } else {
+    document.getElementById('loginError').textContent = 'PIN incorreto. Tente novamente.';
+    document.getElementById('pinInput').value = '';
+    document.getElementById('pinInput').focus();
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('pinInput').focus();
+  document.getElementById('pinInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') checkPin();
+  });
+});
+
+function alterarPin() {
+  const atual = prompt('Digite o PIN atual:');
+  if (atual === null) return;
+  const saved = localStorage.getItem('lors_pin') || '1234';
+  if (atual !== saved) { toast('PIN atual incorreto.', 'error'); return; }
+  const novo = prompt('Digite o novo PIN (4 a 6 dígitos):');
+  if (!novo || !/^\d{4,6}$/.test(novo)) { toast('PIN inválido. Use 4 a 6 dígitos numéricos.', 'error'); return; }
+  const conf = prompt('Confirme o novo PIN:');
+  if (novo !== conf) { toast('Os PINs não conferem.', 'error'); return; }
+  localStorage.setItem('lors_pin', novo);
+  toast('PIN alterado com sucesso!', 'success');
+}
+
+function backupDados() {
+  const data = JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, exportedAt: new Date().toISOString() }, null, 2);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
+  a.download = 'lors_backup_' + new Date().toISOString().slice(0, 10) + '.json';
+  a.click();
+  toast('Backup exportado com sucesso!', 'success');
+}
+
+function restaurarDados() {
+  if (!confirm('Ao restaurar um backup, os dados atuais serão substituídos. Continuar?')) return;
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.json';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const d = JSON.parse(ev.target.result);
+        if (!Array.isArray(d.lancamentos)) throw new Error();
+        lancamentos      = d.lancamentos;
+        recorrentes      = d.recorrentes || [];
+        pagamentosSocios = d.pagamentosSocios || [];
+        nextId = d.nextId || (Math.max(0, ...lancamentos.map(l => l.id)) + 1);
+        saveData();
+        renderLancamentos();
+        renderRecorrentes();
+        updateKPIs();
+        toast('Dados restaurados com sucesso!', 'success');
+      } catch(e) { toast('Arquivo inválido ou corrompido.', 'error'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GOOGLE DRIVE SYNC (via Apps Script Web App)
+// ═══════════════════════════════════════════════════════════════
+const GDRIVE_KEY = 'lors_gdrive_config';
+
+let gdriveConfig = (() => {
+  try { return JSON.parse(localStorage.getItem(GDRIVE_KEY)) || {}; } catch(e) { return {}; }
+})();
+
+// Status: 'disconnected' | 'connected' | 'syncing' | 'error'
+function setSyncStatus(status, msg) {
+  const dot   = document.getElementById('syncDot');
+  const label = document.getElementById('syncLabel');
+  const btn   = document.getElementById('syncNowBtn');
+  if (!dot) return;
+  dot.className   = 'sync-dot ' + (status === 'connected' ? 'connected' : status === 'syncing' ? 'syncing' : status === 'error' ? 'error' : '');
+  label.className = 'sync-label ' + (status === 'connected' ? 'connected' : status === 'error' ? 'error' : '');
+  label.textContent = msg || (status === 'connected' ? 'Drive conectado' : status === 'syncing' ? 'Sincronizando…' : status === 'error' ? 'Erro de sync' : 'Google Drive');
+  btn.style.display = (status === 'connected' || status === 'error') ? '' : 'none';
+}
+
+function setLastSync(ts) {
+  const el = document.getElementById('syncLastTime');
+  if (!el) return;
+  const d = new Date(ts);
+  el.textContent = 'último sync: ' + d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+}
+
+async function sincronizarGDrive(silent = false) {
+  if (!gdriveConfig.url) return;
+  setSyncStatus('syncing');
+  try {
+    const res = await fetch(gdriveConfig.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'save', lancamentos, recorrentes, nextId })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'Falha no script');
+    const now = Date.now();
+    localStorage.setItem('lors_last_sync', now);
+    setLastSync(now);
+    setSyncStatus('connected');
+    if (!silent) toast('Dados sincronizados com Google Drive!', 'success');
+  } catch(e) {
+    setSyncStatus('error', 'Erro ao sincronizar');
+    if (!silent) toast('Falha no Google Drive: ' + e.message, 'error');
+  }
+}
+
+async function carregarDoGDrive() {
+  if (!gdriveConfig.url) return false;
+  setSyncStatus('syncing', 'Carregando Drive…');
+  try {
+    const res = await fetch(gdriveConfig.url + '?action=load', { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    if (!json.lancamentos) throw new Error('Dados inválidos');
+    lancamentos = json.lancamentos;
+    recorrentes = json.recorrentes || [];
+    nextId      = json.nextId || (Math.max(0, ...lancamentos.map(l => l.id)) + 1);
+    saveData();
+    const now = Date.now();
+    localStorage.setItem('lors_last_sync', now);
+    setLastSync(now);
+    setSyncStatus('connected');
+    return true;
+  } catch(e) {
+    setSyncStatus('error', 'Erro ao carregar');
+    toast('Não foi possível carregar do Drive: ' + e.message, 'error');
+    return false;
+  }
+}
+
+async function testarConexao() {
+  const url = document.getElementById('gdriveUrl').value.trim();
+  const res  = document.getElementById('gdriveTestResult');
+  if (!url) { res.className = 'gdrive-test-result err'; res.textContent = 'Informe a URL.'; return; }
+  res.className = 'gdrive-test-result'; res.style.display = 'block'; res.textContent = 'Testando…';
+  try {
+    const r = await fetch(url + '?action=ping', { cache: 'no-store' });
+    const j = await r.json();
+    if (j.ok) { res.className = 'gdrive-test-result ok'; res.textContent = '✓ Conexão bem-sucedida! Apps Script respondendo.'; }
+    else       { res.className = 'gdrive-test-result err'; res.textContent = '✕ Script retornou erro: ' + JSON.stringify(j); }
+  } catch(e) {
+    res.className = 'gdrive-test-result err';
+    res.textContent = '✕ Falha na conexão: ' + e.message + '. Verifique a URL e as permissões.';
+  }
+}
+
+function abrirGDriveConfig() {
+  document.getElementById('gdriveUrl').value        = gdriveConfig.url || '';
+  document.getElementById('gdriveSyncAuto').checked = gdriveConfig.autoSync !== false;
+  document.getElementById('gdriveTestResult').className = 'gdrive-test-result';
+  document.getElementById('modalGDrive').classList.add('open');
+}
+function fecharGDriveConfig() { document.getElementById('modalGDrive').classList.remove('open'); }
+
+function salvarGDriveConfig() {
+  const url = document.getElementById('gdriveUrl').value.trim();
+  if (!url) { toast('Informe a URL do Apps Script.', 'error'); return; }
+  gdriveConfig = { url, autoSync: document.getElementById('gdriveSyncAuto').checked };
+  localStorage.setItem(GDRIVE_KEY, JSON.stringify(gdriveConfig));
+  fecharGDriveConfig();
+  toast('Configuração salva! Sincronizando…', 'success');
+  carregarDoGDrive().then(ok => { if (ok) { renderLancamentos(); renderRecorrentes(); updateKPIs(); } });
+}
+
+function desconectarGDrive() {
+  if (!confirm('Desconectar Google Drive? Os dados locais serão mantidos.')) return;
+  gdriveConfig = {};
+  localStorage.removeItem(GDRIVE_KEY);
+  localStorage.removeItem('lors_last_sync');
+  fecharGDriveConfig();
+  setSyncStatus('disconnected');
+  document.getElementById('syncLastTime').textContent = '';
+  toast('Google Drive desconectado.', 'success');
+}
+
+const APPS_SCRIPT_CODE = `// ═══════════════════════════════════════════════════════════════
+// LORS Transportes — Apps Script Data Center
+// Cole este código no Google Apps Script e implante como Web App
+// Acesso: "Qualquer pessoa" | Executar como: "Eu"
+// ═══════════════════════════════════════════════════════════════
+
+function doGet(e) {
+  const action = e.parameter.action || 'load';
+  if (action === 'ping') return json({ ok: true, app: 'LORS Transportes', ts: new Date().toISOString() });
+  if (action === 'load') return loadData();
+  return json({ error: 'Ação desconhecida' });
+}
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    if (data.action === 'save') return saveData(data);
+    return json({ error: 'Ação desconhecida' });
+  } catch(err) {
+    return json({ success: false, error: err.message });
+  }
+}
+
+function loadData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const lancamentos = sheetToArray(getOrCreate(ss, 'Lancamentos'));
+  const recorrentes = sheetToArray(getOrCreate(ss, 'Recorrentes'));
+  const props = PropertiesService.getScriptProperties();
+  const nextId = parseInt(props.getProperty('nextId') || '47');
+  return json({ lancamentos, recorrentes, nextId });
+}
+
+function saveData(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const lancCols = ['id','data','descricao','tipo','categoria','valor','obs'];
+  const recCols  = ['id','descricao','categoria','frequencia','dia','inicio','fim','valor'];
+  arrayToSheet(getOrCreate(ss, 'Lancamentos'), data.lancamentos || [], lancCols);
+  arrayToSheet(getOrCreate(ss, 'Recorrentes'), data.recorrentes || [], recCols);
+  PropertiesService.getScriptProperties().setProperty('nextId', String(data.nextId || 47));
+  return json({ success: true, savedAt: new Date().toISOString() });
+}
+
+function getOrCreate(ss, name) {
+  return ss.getSheetByName(name) || ss.insertSheet(name);
+}
+
+function sheetToArray(sheet) {
+  const vals = sheet.getDataRange().getValues();
+  if (vals.length < 2) return [];
+  const headers = vals[0];
+  return vals.slice(1).map(row => {
+    const obj = {};
+    headers.forEach((h, i) => { if (h) obj[h] = row[i]; });
+    return obj;
+  });
+}
+
+function arrayToSheet(sheet, items, headers) {
+  sheet.clearContents();
+  if (!items.length) { sheet.getRange(1,1,1,headers.length).setValues([headers]); return; }
+  const rows = [headers, ...items.map(item => headers.map(h => item[h] !== undefined ? item[h] : ''))];
+  sheet.getRange(1, 1, rows.length, headers.length).setValues(rows);
+}
+
+function json(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}`;
+
+function copiarAppsScript() {
+  navigator.clipboard.writeText(APPS_SCRIPT_CODE).then(() => {
+    toast('Código copiado! Cole no Apps Script.', 'success');
+  }).catch(() => {
+    // Fallback: baixar como arquivo
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([APPS_SCRIPT_CODE], { type: 'text/javascript' }));
+    a.download = 'lors_apps_script.js';
+    a.click();
+    toast('Código baixado como lors_apps_script.js', 'success');
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ESTADO
+// ═══════════════════════════════════════════════════════════════
+const CATS_RECEITA = ['receita'];
+const CATS_SAIDA   = ['despvar','manutencao','pessoal','administrativo','implemento','caminhao','seguro','impostos','outros'];
+
+const CAT_LABELS = {
+  receita:       'Receita',
+  despvar:       'Despesas Variável',
+  manutencao:    'Manutenção',
+  pessoal:       'Pessoal',
+  administrativo:'Administrativo',
+  implemento:    'Implemento',
+  caminhao:      'Caminhão',
+  seguro:        'Seguro',
+  impostos:      'Impostos',
+  outros:        'Outros'
+};
+
+const CAT_BADGE = {
+  receita:'receita', despvar:'despvar', manutencao:'manutencao',
+  pessoal:'pessoal', administrativo:'administrativo', implemento:'implemento',
+  caminhao:'caminhao', seguro:'seguro', impostos:'impostos', outros:'outros'
+};
+
+// Dados pré-carregados do extrato (usados apenas se não houver dados salvos)
+const _DEFAULT_LANC = [
+  // ── Receitas ──
+  {id:1,  data:'2025-12-15', descricao:'Aporte inicial — Luiz Otávio Moura Reis', tipo:'receita', categoria:'outros',  valor:31662.42, quemPagou:'', obs:'Capital social'},
+  {id:2,  data:'2026-03-02', descricao:'Dissenha Florestal LTDA', tipo:'receita', categoria:'receita', valor:7764.40,  quemPagou:'', obs:'Faturamento de transporte'},
+  {id:3,  data:'2026-03-16', descricao:'Dissenha Florestal LTDA', tipo:'receita', categoria:'receita', valor:76585.60, quemPagou:'', obs:'Faturamento de transporte'},
+  {id:4,  data:'2026-04-01', descricao:'Dissenha Florestal LTDA', tipo:'receita', categoria:'receita', valor:76985.00, quemPagou:'', obs:'Faturamento de transporte'},
+  // ── Saídas ──
+  {id:5,  data:'2025-12-02', descricao:'Junta Comercial - FIRMMA',                  tipo:'saida', categoria:'administrativo', valor:472.40,    quemPagou:'Otávio',  obs:''},
+  {id:6,  data:'2025-12-03', descricao:'Entrada Implemento',                         tipo:'saida', categoria:'implemento',    valor:20000.00,  quemPagou:'Otávio',  obs:''},
+  {id:7,  data:'2025-12-16', descricao:'Prefeitura',                                 tipo:'saida', categoria:'administrativo', valor:190.02,    quemPagou:'Otávio',  obs:''},
+  {id:8,  data:'2025-12-17', descricao:'Documento Implemento',                       tipo:'saida', categoria:'implemento',    valor:11000.00,  quemPagou:'Otávio',  obs:''},
+  {id:9,  data:'2026-01-20', descricao:'Contabilidade',                              tipo:'saida', categoria:'administrativo', valor:350.00,    quemPagou:'LORS',    obs:''},
+  {id:10, data:'2026-01-24', descricao:'Robison (Certificado)',                      tipo:'saida', categoria:'administrativo', valor:185.00,    quemPagou:'LORS',    obs:''},
+  {id:11, data:'2026-02-05', descricao:'Ecomed - Admissional',                       tipo:'saida', categoria:'administrativo', valor:331.63,    quemPagou:'LORS',    obs:''},
+  {id:12, data:'2026-02-09', descricao:'Juninho - Oficina e Transportes Jangada',    tipo:'saida', categoria:'implemento',    valor:10000.00,  quemPagou:'LORS',    obs:''},
+  {id:13, data:'2026-02-11', descricao:'Alaor - Transferencia Implemento',           tipo:'saida', categoria:'implemento',    valor:1500.00,   quemPagou:'LORS',    obs:''},
+  {id:14, data:'2026-02-12', descricao:'Varnier - Tacógrafo',                        tipo:'saida', categoria:'manutencao',    valor:661.08,    quemPagou:'LORS',    obs:''},
+  {id:15, data:'2026-02-12', descricao:'Global Despachante - Emplacamento',          tipo:'saida', categoria:'administrativo', valor:730.00,    quemPagou:'LORS',    obs:''},
+  {id:16, data:'2026-02-12', descricao:'Combustível - Mallon',                       tipo:'saida', categoria:'despvar',       valor:2681.58,   quemPagou:'LORS',    obs:''},
+  {id:17, data:'2026-02-13', descricao:'Leandro Novak - Insulfilm',                  tipo:'saida', categoria:'administrativo', valor:500.00,    quemPagou:'LORS',    obs:''},
+  {id:18, data:'2026-02-13', descricao:'União - Inspeção',                           tipo:'saida', categoria:'administrativo', valor:1200.00,   quemPagou:'LORS',    obs:''},
+  {id:19, data:'2026-02-14', descricao:'Douglas - Pedágio + Caixa Caminhão',         tipo:'saida', categoria:'pessoal',       valor:1200.00,   quemPagou:'LORS',    obs:''},
+  {id:20, data:'2026-02-14', descricao:'GG - Facão',                                 tipo:'saida', categoria:'administrativo', valor:104.88,    quemPagou:'Rodrigo', obs:''},
+  {id:21, data:'2026-02-15', descricao:'Combustível - Dunapertol',                   tipo:'saida', categoria:'despvar',       valor:2500.00,   quemPagou:'Rodrigo', obs:'LORS reembolsou em 17.02.2026'},
+  {id:22, data:'2026-02-17', descricao:'Douglas - Pedágio + Caixa Caminhão',         tipo:'saida', categoria:'despvar',       valor:800.00,    quemPagou:'LORS',    obs:''},
+  {id:23, data:'2026-02-18', descricao:'Douglas - Pedágio',                          tipo:'saida', categoria:'despvar',       valor:500.00,    quemPagou:'LORS',    obs:''},
+  {id:24, data:'2026-02-18', descricao:'Douglas - Adiantamento',                     tipo:'saida', categoria:'pessoal',       valor:500.00,    quemPagou:'LORS',    obs:''},
+  {id:25, data:'2026-02-20', descricao:'Contabilidade',                              tipo:'saida', categoria:'administrativo', valor:350.00,    quemPagou:'LORS',    obs:''},
+  {id:26, data:'2026-02-20', descricao:'Douglas - Pedágio',                          tipo:'saida', categoria:'despvar',       valor:500.00,    quemPagou:'LORS',    obs:''},
+  {id:27, data:'2026-02-27', descricao:'Douglas - Adiantamento',                     tipo:'saida', categoria:'pessoal',       valor:1000.00,   quemPagou:'LORS',    obs:''},
+  {id:28, data:'2026-02-27', descricao:'Seguro - 1ª parcela',                        tipo:'saida', categoria:'seguro',        valor:2811.62,   quemPagou:'LORS',    obs:''},
+  {id:29, data:'2026-02-28', descricao:'Giacomet',                                   tipo:'saida', categoria:'manutencao',    valor:340.00,    quemPagou:'LORS',    obs:''},
+  {id:30, data:'2026-02-28', descricao:'Cacique - PX',                               tipo:'saida', categoria:'administrativo', valor:400.00,    quemPagou:'LORS',    obs:''},
+  {id:31, data:'2026-03-02', descricao:'IPVA 2026',                                  tipo:'saida', categoria:'administrativo', valor:8700.00,   quemPagou:'LORS',    obs:''},
+  {id:32, data:'2026-03-06', descricao:'Douglas - Salário',                          tipo:'saida', categoria:'pessoal',       valor:2540.17,   quemPagou:'LORS',    obs:''},
+  {id:33, data:'2026-03-06', descricao:'Douglas - Extra Salário',                    tipo:'saida', categoria:'pessoal',       valor:2410.73,   quemPagou:'LORS',    obs:''},
+  {id:34, data:'2026-03-06', descricao:'1ª parcela - Implemento',                    tipo:'saida', categoria:'implemento',    valor:10372.00,  quemPagou:'LORS',    obs:''},
+  {id:35, data:'2026-03-10', descricao:'1ª parcela - Entrada Caminhão',              tipo:'saida', categoria:'caminhao',      valor:58000.00,  quemPagou:'LORS',    obs:''},
+  {id:36, data:'2026-03-12', descricao:'Lavajato',                                   tipo:'saida', categoria:'manutencao',    valor:380.00,    quemPagou:'LORS',    obs:''},
+  {id:37, data:'2026-03-16', descricao:'Sem parar',                                  tipo:'saida', categoria:'despvar',       valor:3068.45,   quemPagou:'LORS',    obs:'Pago para Morane'},
+  {id:38, data:'2026-03-18', descricao:'BRS Material de Segurança',                  tipo:'saida', categoria:'administrativo', valor:1263.77,   quemPagou:'LORS',    obs:''},
+  {id:39, data:'2026-03-18', descricao:'Hresko - Diesel e Arla',                     tipo:'saida', categoria:'despvar',       valor:21428.65,  quemPagou:'LORS',    obs:''},
+  {id:40, data:'2026-03-19', descricao:'Lubrificação',                               tipo:'saida', categoria:'manutencao',    valor:108.00,    quemPagou:'Rodrigo', obs:''},
+  {id:41, data:'2026-03-20', descricao:'DARF INSS',                                  tipo:'saida', categoria:'impostos',      valor:224.50,    quemPagou:'LORS',    obs:''},
+  {id:42, data:'2026-03-20', descricao:'Guia FGTS',                                  tipo:'saida', categoria:'impostos',      valor:221.17,    quemPagou:'LORS',    obs:''},
+  {id:43, data:'2026-03-20', descricao:'Firmma Contabil',                            tipo:'saida', categoria:'administrativo', valor:350.00,    quemPagou:'LORS',    obs:''},
+  {id:44, data:'2026-03-20', descricao:'DARF',                                       tipo:'saida', categoria:'impostos',      valor:2295.40,   quemPagou:'LORS',    obs:''},
+  {id:45, data:'2026-03-21', descricao:'Douglas - Adiantamento',                     tipo:'saida', categoria:'pessoal',       valor:2500.00,   quemPagou:'LORS',    obs:''},
+  {id:46, data:'2026-03-24', descricao:'Juninho - Oficina e Transportes Jangada',    tipo:'saida', categoria:'implemento',    valor:8740.00,   quemPagou:'LORS',    obs:''},
+  {id:47, data:'2026-03-24', descricao:'Palasoft',                                   tipo:'saida', categoria:'administrativo', valor:178.00,    quemPagou:'LORS',    obs:''},
+  {id:48, data:'2026-03-24', descricao:'Auto Elétrica de Lima',                      tipo:'saida', categoria:'manutencao',    valor:944.50,    quemPagou:'LORS',    obs:''},
+  {id:49, data:'2026-04-02', descricao:'Douglas - Adiantamento',                     tipo:'saida', categoria:'pessoal',       valor:3000.00,   quemPagou:'LORS',    obs:''},
+  {id:50, data:'2026-04-06', descricao:'Mauricio - Manutenção molas',                tipo:'saida', categoria:'manutencao',    valor:2300.00,   quemPagou:'LORS',    obs:''},
+  {id:51, data:'2026-04-06', descricao:'Lourian - Manutenção molas',                 tipo:'saida', categoria:'manutencao',    valor:700.00,    quemPagou:'LORS',    obs:''},
+  {id:52, data:'2026-04-07', descricao:'Faustin - Manutenção molas',                 tipo:'saida', categoria:'manutencao',    valor:617.40,    quemPagou:'LORS',    obs:''},
+  {id:53, data:'2026-04-07', descricao:'Douglas - Salário',                          tipo:'saida', categoria:'pessoal',       valor:2978.62,   quemPagou:'LORS',    obs:''},
+  {id:54, data:'2026-04-07', descricao:'Douglas - Salário',                          tipo:'saida', categoria:'pessoal',       valor:6666.08,   quemPagou:'LORS',    obs:''},
+  {id:55, data:'2026-04-08', descricao:'Faustin - Manutenção molas',                 tipo:'saida', categoria:'manutencao',    valor:68.50,     quemPagou:'LORS',    obs:''},
+  {id:56, data:'2026-04-09', descricao:'Lourian - Manutenção molas',                 tipo:'saida', categoria:'manutencao',    valor:300.00,    quemPagou:'LORS',    obs:''},
+  {id:57, data:'2026-04-09', descricao:'Lubrificação',                               tipo:'saida', categoria:'manutencao',    valor:108.00,    quemPagou:'LORS',    obs:''},
+  {id:58, data:'2026-04-10', descricao:'Seguro - 2ª parcela',                        tipo:'saida', categoria:'seguro',        valor:2811.62,   quemPagou:'LORS',    obs:''},
+  {id:59, data:'2026-04-10', descricao:'2ª parcela - Entrada Caminhão',              tipo:'saida', categoria:'caminhao',      valor:58000.00,  quemPagou:'LORS',    obs:''},
+  {id:60, data:'2026-04-10', descricao:'Palasoft',                                   tipo:'saida', categoria:'administrativo', valor:148.14,    quemPagou:'LORS',    obs:''},
+  {id:61, data:'2026-04-10', descricao:'Hresko - Diesel e Arla',                     tipo:'saida', categoria:'despvar',       valor:20000.00,  quemPagou:'LORS',    obs:''},
+  {id:62, data:'2026-04-15', descricao:'Implemento - Thiago Vaz',                    tipo:'saida', categoria:'manutencao',    valor:3206.00,   quemPagou:'LORS',    obs:''},
+  {id:63, data:'2026-04-17', descricao:'Despesa - AET',                              tipo:'saida', categoria:'pessoal',       valor:200.00,    quemPagou:'LORS',    obs:''},
+  {id:64, data:'2026-04-18', descricao:'Guincho PG - AET',                           tipo:'saida', categoria:'manutencao',    valor:411.69,    quemPagou:'LORS',    obs:''},
+  {id:65, data:'2026-04-20', descricao:'Contabilidade',                              tipo:'saida', categoria:'administrativo', valor:350.00,    quemPagou:'LORS',    obs:''},
+  {id:66, data:'2026-04-16', descricao:'1ª parcela caminhão',                        tipo:'saida', categoria:'caminhao',      valor:28102.79,  quemPagou:'LORS',    obs:''},
+  {id:67, data:'2026-04-16', descricao:'Juninho - Oficina e Transportes Jangada',    tipo:'saida', categoria:'implemento',    valor:5000.00,   quemPagou:'LORS',    obs:''},
+  {id:68, data:'2026-04-16', descricao:'2ª parcela - Implemento',                    tipo:'saida', categoria:'implemento',    valor:11366.81,  quemPagou:'LORS',    obs:''},
+  {id:69, data:'2026-04-20', descricao:'DARF',                                       tipo:'saida', categoria:'impostos',      valor:7157.30,   quemPagou:'LORS',    obs:''},
+  {id:70, data:'2026-04-22', descricao:"Emissão AET's",                              tipo:'saida', categoria:'administrativo', valor:510.00,    quemPagou:'LORS',    obs:''},
+  {id:71, data:'2026-04-24', descricao:'Giacomet - Balança Implemento',              tipo:'saida', categoria:'manutencao',    valor:1496.00,   quemPagou:'LORS',    obs:''},
+  {id:72, data:'2026-04-25', descricao:'Douglas - Adiantamento',                     tipo:'saida', categoria:'pessoal',       valor:1000.00,   quemPagou:'LORS',    obs:''},
+  {id:73, data:'2026-04-25', descricao:'Lubrificação',                               tipo:'saida', categoria:'manutencao',    valor:128.00,    quemPagou:'LORS',    obs:''},
+  {id:74, data:'2026-04-27', descricao:'1ª parcela - Pneus',                         tipo:'saida', categoria:'implemento',    valor:7592.96,   quemPagou:'LORS',    obs:''},
+];
+
+const _DEFAULT_REC = [
+  {id:1, descricao:'Diesel e Arla — Cacilda', categoria:'custos', frequencia:'quinzenal', dia:15, inicio:'2026-04', fim:'2026-12', valor:30000},
+  {id:2, descricao:'Salários e Adiantamentos', categoria:'salarios', frequencia:'mensal', dia:15, inicio:'2026-04', fim:'2026-12', valor:12000},
+  {id:3, descricao:'Pedágio — Ind. Comércio Madeiras Morane', categoria:'custos', frequencia:'mensal', dia:30, inicio:'2026-04', fim:'2026-12', valor:6000},
+  {id:4, descricao:'Câmeras e Telemetria', categoria:'despesas', frequencia:'mensal', dia:30, inicio:'2026-04', fim:'2026-12', valor:390},
+  {id:5, descricao:'Allianz Seguros — Seguro Caminhão', categoria:'custos', frequencia:'mensal', dia:10, inicio:'2026-04', fim:'2026-11', valor:2811.62},
+  {id:6, descricao:'Firmma Contábil Assessoria', categoria:'despesas', frequencia:'mensal', dia:20, inicio:'2026-04', fim:'2026-12', valor:350},
+  {id:7, descricao:'Palasoft — Sistema', categoria:'despesas', frequencia:'mensal', dia:24, inicio:'2026-04', fim:'2026-12', valor:178},
+];
+
+// Inicializa do localStorage ou usa defaults
+const _stored = loadData();
+let lancamentos = _stored ? _stored.lancamentos : JSON.parse(JSON.stringify(_DEFAULT_LANC));
+let recorrentes = _stored ? _stored.recorrentes : JSON.parse(JSON.stringify(_DEFAULT_REC));
+
+// Parcelas futuras fixas (fora do sistema de recorrentes pois têm valores variáveis)
+const parcelasFuturas = [
+  {mes:'2026-04', desc:'Mallon (2ª parcela entrada)', cat:'financ', valor:58000},
+  {mes:'2026-04', desc:'Financiamento Caminhão 1ª parcela', cat:'financ', valor:28040.65},
+  {mes:'2026-04', desc:'Implemento 1ª parcela', cat:'financ', valor:13166.67},
+  {mes:'2026-04', desc:'Oficina e Transportes Jangada', cat:'custos', valor:5000},
+  {mes:'2026-04', desc:'Pneus 1ª parcela', cat:'financ', valor:7592.96},
+  {mes:'2026-05', desc:'Mallon (3ª parcela entrada)', cat:'financ', valor:58000},
+  {mes:'2026-05', desc:'Financiamento Caminhão 2ª parcela', cat:'financ', valor:18701.11},
+  {mes:'2026-05', desc:'Implemento 2ª parcela', cat:'financ', valor:13166.67},
+  {mes:'2026-05', desc:'Oficina e Transportes Jangada', cat:'custos', valor:5000},
+  {mes:'2026-05', desc:'Pneus 2ª parcela', cat:'financ', valor:7592.96},
+  {mes:'2026-06', desc:'Financiamento Caminhão 3ª parcela', cat:'financ', valor:18814.69},
+  {mes:'2026-06', desc:'Implemento 3ª parcela', cat:'financ', valor:13166.67},
+  {mes:'2026-06', desc:'Oficina e Transportes Jangada', cat:'custos', valor:5000},
+  {mes:'2026-06', desc:'Pneus 3ª parcela', cat:'financ', valor:7592.96},
+  {mes:'2026-07', desc:'Financiamento Caminhão 4ª parcela', cat:'financ', valor:18460.39},
+  {mes:'2026-07', desc:'Implemento 4ª parcela', cat:'financ', valor:13166.67},
+  {mes:'2026-07', desc:'Pneus 4ª parcela', cat:'financ', valor:7592.96},
+  {mes:'2026-08', desc:'Financiamento Caminhão 5ª parcela', cat:'financ', valor:19017.87},
+  {mes:'2026-08', desc:'Implemento 5ª parcela', cat:'financ', valor:13166.67},
+  {mes:'2026-08', desc:'Pneus 5ª parcela', cat:'financ', valor:7592.96},
+  {mes:'2026-09', desc:'Financiamento Caminhão 6ª parcela', cat:'financ', valor:17997.92},
+  {mes:'2026-09', desc:'Implemento 6ª parcela', cat:'financ', valor:13166.67},
+  {mes:'2026-09', desc:'Pneus 6ª parcela', cat:'financ', valor:7592.96},
+  {mes:'2026-10', desc:'Financiamento Caminhão 7ª parcela', cat:'financ', valor:18099.32},
+  {mes:'2026-11', desc:'Financiamento Caminhão 8ª parcela', cat:'financ', valor:18406.57},
+  {mes:'2026-12', desc:'Financiamento Caminhão 9ª parcela', cat:'financ', valor:17648.94},
+];
+
+let nextId           = _stored ? _stored.nextId           : 75;
+let pagamentosSocios = _stored ? (_stored.pagamentosSocios||[]) : [];
+let editingId  = null;
+let currentTab = 'todos';
+let currentMes = '';
+let currentSearch = '';
+let currentPagou  = '';
+let charts = {};
+
+// ═══════════════════════════════════════════════════════════════
+// MIGRAÇÃO: cria lançamentos para pagSocios antigos sem lancamentoId
+// ═══════════════════════════════════════════════════════════════
+(function migrarPagSocios() {
+  let alterou = false;
+  pagamentosSocios.forEach(p => {
+    if (p.lancamentoId != null) return; // já vinculado
+    const isAporte = p.tipo === 'aporte';
+    const lancTipo = isAporte ? 'receita' : 'saida';
+    const lancCat  = isAporte ? 'receita' : (p.categoria || 'pessoal');
+    const lancDesc = isAporte ? `Aporte ${p.socio}: ${p.desc}` : `Reembolso ${p.socio}: ${p.desc}`;
+    const lancId   = nextId++;
+    lancamentos.push({ id: lancId, tipo: lancTipo, categoria: lancCat, descricao: lancDesc, valor: p.valor, data: p.data, quemPagou: isAporte ? p.socio : 'LORS', obs: '' });
+    p.lancamentoId = lancId;
+    alterou = true;
+  });
+  if (alterou) saveData();
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// UTILITÁRIOS
+// ═══════════════════════════════════════════════════════════════
+const fmt = v => 'R$ ' + Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtSigned = v => (v<0?'-':'+') + fmt(v);
+const mes2label = m => { const [y,mo]=m.split('-'); const ns=['','jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez']; return ns[+mo]+'/'+y.slice(2); };
+const dataMes = d => d.slice(0,7);
+
+function getMesesRange(start='2026-04', end='2026-12') {
+  const meses=[];let cur=start;
+  while(cur<=end){meses.push(cur);const[y,m]=cur.split('-').map(Number);const nm=m===12?1:m+1,ny=m===12?y+1:y;cur=`${ny}-${String(nm).padStart(2,'0')}`;}
+  return meses;
+}
+
+// Gera lançamentos de recorrentes para um mês específico
+function getRecorrentesDoMes(mesStr) {
+  const [ay,am] = mesStr.split('-').map(Number);
+  const result = [];
+  for(const r of recorrentes) {
+    const [iy,im] = r.inicio.split('-').map(Number);
+    const [fy,fm] = r.fim ? r.fim.split('-').map(Number) : [9999,12];
+    const dentroRange = (ay>iy||(ay===iy&&am>=im)) && (ay<fy||(ay===fy&&am<=fm));
+    if(!dentroRange) continue;
+    if(r.frequencia==='mensal') result.push({desc:r.descricao,cat:r.categoria,valor:r.valor});
+    if(r.frequencia==='quinzenal') {result.push({desc:r.descricao+' (1ª quinzena)',cat:r.categoria,valor:r.valor});result.push({desc:r.descricao+' (2ª quinzena)',cat:r.categoria,valor:r.valor});}
+    if(r.frequencia==='bimestral' && am%2===0) result.push({desc:r.descricao,cat:r.categoria,valor:r.valor});
+  }
+  return result;
+}
+
+// Soma por categoria e mês nos lançamentos reais
+function sumByMesCat(mes, cats) {
+  return lancamentos.filter(l=>dataMes(l.data)===mes&&cats.includes(l.categoria)&&l.tipo==='saida').reduce((s,l)=>s+l.valor,0);
+}
+function sumReceitaMes(mes) {
+  return lancamentos.filter(l=>dataMes(l.data)===mes&&l.tipo==='receita'&&l.categoria==='receita').reduce((s,l)=>s+l.valor,0);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NAVEGAÇÃO
+// ═══════════════════════════════════════════════════════════════
+const pages = {
+  lancamentos: {el:'pageLancamentos', title:'Lançamentos', sub:'Receitas e despesas registradas'},
+  recorrentes: {el:'pageRecorrentes', title:'Despesas Recorrentes', sub:'Lançamentos automáticos por período'},
+  dre:         {el:'pageDRE',        title:'DRE', sub:'Demonstração do Resultado do Exercício'},
+  fluxo:       {el:'pageFluxo',      title:'Fluxo de Caixa Futuro', sub:'Projeção mensal de receitas e saídas'},
+  graficos:    {el:'pageGraficos',   title:'Gráficos', sub:'Análise visual dos dados financeiros'},
+  socios:      {el:'pageSocios',     title:'Pagamento a Sócios',  sub:'Controle de reembolsos para Otávio e Rodrigo'},
+  orcamento:   {el:'pageOrcamento',  title:'Orçamento de Frete',  sub:'Simulador de custo e margem por viagem'},
+};
+
+function showPage(page) {
+  Object.values(pages).forEach(p=>document.getElementById(p.el).style.display='none');
+  document.getElementById(pages[page].el).style.display='';
+  document.getElementById('pageTitle').textContent=pages[page].title;
+  document.getElementById('pageSub').textContent=pages[page].sub;
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>{if(n.textContent.trim().toLowerCase().includes(page.slice(0,4))||n.onclick?.toString().includes(page))n.classList.add('active');});
+  updateKPIs();
+  if(page==='dre') renderDRE();
+  if(page==='fluxo') renderFluxo();
+  if(page==='graficos') setTimeout(renderCharts, 50);
+  if(page==='socios')   renderSocios();
+  if(page==='orcamento') calcOrcamento();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// KPIs
+// ═══════════════════════════════════════════════════════════════
+function updateKPIs() {
+  const receita = lancamentos.filter(l=>l.tipo==='receita'&&l.categoria==='receita').reduce((s,l)=>s+l.valor,0);
+  const saidas  = lancamentos.filter(l=>l.tipo==='saida').reduce((s,l)=>s+l.valor,0);
+  const resultado = receita - saidas;
+  document.getElementById('kpiReceita').textContent = fmt(receita);
+  document.getElementById('kpiSaidas').textContent  = fmt(saidas);
+  document.getElementById('kpiResultado').textContent = fmt(resultado);
+  document.getElementById('kpiResultado').className = 'card-value ' + (resultado>=0?'pos':'neg');
+  document.getElementById('kpiReceitaDelta').textContent = `${lancamentos.filter(l=>l.tipo==='receita'&&l.categoria==='receita').length} lançamentos`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LANÇAMENTOS
+// ═══════════════════════════════════════════════════════════════
+function filterTab(tab, el) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderLancamentos();
+}
+
+function renderLancamentos() {
+  const tbody = document.getElementById('tbodyLancamentos');
+  let data = [...lancamentos].sort((a,b)=>b.data.localeCompare(a.data));
+
+  // Popular select de meses (meses disponíveis nos dados)
+  const selMes = document.getElementById('filterMes');
+  if(selMes) {
+    const mesesDisp = [...new Set(lancamentos.map(l=>dataMes(l.data)))].sort().reverse();
+    const mesAtual = selMes.value;
+    selMes.innerHTML = '<option value="">Todos os meses</option>' +
+      mesesDisp.map(m=>`<option value="${m}"${m===mesAtual?' selected':''}>${mes2label(m)}</option>`).join('');
+  }
+
+  // Filtro por aba
+  if(currentTab!=='todos') {
+    if(currentTab==='receita') data=data.filter(l=>l.tipo==='receita');
+    else data=data.filter(l=>l.categoria===currentTab);
+  }
+  // Filtro por mês
+  if(currentMes) data = data.filter(l=>dataMes(l.data)===currentMes);
+  // Filtro por texto
+  if(currentSearch.trim()) {
+    const q = currentSearch.toLowerCase().trim();
+    data = data.filter(l=>l.descricao.toLowerCase().includes(q)||(l.obs||'').toLowerCase().includes(q));
+  }
+  // Filtro por quem pagou
+  if(currentPagou) data = data.filter(l=>l.quemPagou===currentPagou);
+
+  // Detectar descrições repetidas na seleção atual
+  const descCount = {};
+  data.forEach(l=>{ const k=l.descricao.toLowerCase(); descCount[k]=(descCount[k]||0)+1; });
+
+  tbody.innerHTML = data.map(l=>{
+    const rep = descCount[l.descricao.toLowerCase()] > 1;
+    return `<tr style="${rep?'background:rgba(45,74,138,.05)':''}">
+      <td>${l.data.split('-').reverse().join('/')}</td>
+      <td>${l.descricao}${rep?` <span style="font-size:10px;color:var(--accent);opacity:.7">×${descCount[l.descricao.toLowerCase()]}</span>`:''}${l.obs?`<br><small style="color:var(--muted)">${l.obs}</small>`:''}</td>
+      <td><span class="badge badge-${CAT_BADGE[l.categoria]}">${CAT_LABELS[l.categoria]}</span></td>
+      <td>${l.quemPagou||'—'}</td>
+      <td class="r ${l.tipo==='receita'?'valor-pos':'valor-neg'}">${l.tipo==='receita'?'+':'-'}${fmt(l.valor)}</td>
+      <td style="text-align:right">
+        <button class="btn btn-sm" onclick="editarLancamento(${l.id})">✎</button>
+        <button class="btn btn-sm btn-danger" onclick="excluirLancamento(${l.id})">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Rodapé totais
+  const tRec = data.filter(l=>l.tipo==='receita').reduce((s,l)=>s+l.valor,0);
+  const tSai = data.filter(l=>l.tipo==='saida').reduce((s,l)=>s+l.valor,0);
+  const saldo = tRec - tSai;
+  document.getElementById('tfootLancamentos').innerHTML = data.length ? `
+    <tr style="background:var(--paper2);border-top:2px solid var(--border)">
+      <td colspan="3" style="padding:8px 12px;font-weight:600;font-size:12px">
+        Total — ${data.length} lançamento${data.length!==1?'s':''}
+      </td>
+      <td style="font-size:11px;color:var(--muted)">
+        ${tRec>0?`<span style="color:var(--green)">+${fmt(tRec)}</span> `:''}${tSai>0?`<span style="color:var(--red)">-${fmt(tSai)}</span>`:''}
+      </td>
+      <td class="r" style="font-weight:700;color:${saldo>=0?'var(--green)':'var(--red)'}">${saldo>=0?'+':''}${fmt(saldo)}</td>
+      <td></td>
+    </tr>` : '';
+
+  // Info filtro
+  document.getElementById('filterInfo').textContent = (currentSearch||currentPagou) ? `${data.length} resultado${data.length!==1?'s':''}` : '';
+
+  // Totais por categoria
+  renderCatSummary(data);
+  updateKPIs();
+}
+
+function renderCatSummary(data) {
+  const el = document.getElementById('catSummary');
+  const byCat = {};
+  data.forEach(l=>{ if(l.tipo==='saida') byCat[l.categoria]=(byCat[l.categoria]||0)+l.valor; });
+  const cats = Object.entries(byCat).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  if(!cats.length){ el.innerHTML=''; return; }
+  el.innerHTML = `<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px">
+    ${cats.map(([cat,val])=>`
+      <div onclick="filterTabByName('${cat}')" style="display:flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:5px 10px;cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='var(--shadow)'" onmouseout="this.style.boxShadow='none'">
+        <span class="badge badge-${CAT_BADGE[cat]}">${CAT_LABELS[cat]}</span>
+        <span style="font-weight:600;font-size:12px;color:var(--red)">-${fmt(val)}</span>
+      </div>`).join('')}
+  </div>`;
+}
+
+function filterTabByName(cat) {
+  currentTab = cat;
+  currentSearch = '';
+  currentPagou = '';
+  document.getElementById('searchDesc').value = '';
+  document.getElementById('filterPagou').value = '';
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>{ if(t.getAttribute('onclick')?.includes(`'${cat}'`)) t.classList.add('active'); });
+  renderLancamentos();
+}
+
+function renderRecorrentes() {
+  const tbody = document.getElementById('tbodyRecorrentes');
+  tbody.innerHTML = recorrentes.map(r=>`
+    <tr>
+      <td>${r.descricao}</td>
+      <td><span class="badge badge-${CAT_BADGE[r.categoria]}">${CAT_LABELS[r.categoria]}</span></td>
+      <td>${r.frequencia} <span class="rec-badge">↺</span></td>
+      <td>dia ${r.dia}</td>
+      <td>${mes2label(r.inicio)}</td>
+      <td>${r.fim?mes2label(r.fim):'—'}</td>
+      <td class="r valor-neg">-${fmt(r.valor)}</td>
+      <td style="text-align:right">
+        <button class="btn btn-sm btn-danger" onclick="excluirRecorrente(${r.id})">✕</button>
+      </td>
+    </tr>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODAL LANÇAMENTO
+// ═══════════════════════════════════════════════════════════════
+function updateCategorias() {
+  const tipo = document.getElementById('fTipo').value;
+  const cats = tipo==='receita'?CATS_RECEITA:CATS_SAIDA;
+  document.getElementById('fCategoria').innerHTML = cats.map(c=>`<option value="${c}">${CAT_LABELS[c]}</option>`).join('');
+}
+
+function abrirModal(id=null) {
+  editingId = id;
+  document.getElementById('modalTitleText').textContent = id ? 'Editar Lançamento' : 'Novo Lançamento';
+  const form = document.getElementById('formLancamento');
+  form.reset();
+  updateCategorias();
+  if(id) {
+    const l = lancamentos.find(x=>x.id===id);
+    document.getElementById('fData').value = l.data;
+    document.getElementById('fTipo').value = l.tipo;
+    updateCategorias();
+    document.getElementById('fCategoria').value = l.categoria;
+    document.getElementById('fDescricao').value = l.descricao;
+    document.getElementById('fValor').value = l.valor;
+    document.getElementById('fObs').value = l.obs||'';
+    document.getElementById('fQuemPagou').value = l.quemPagou||'';
+  } else {
+    document.getElementById('fData').value = new Date().toISOString().slice(0,10);
+  }
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function fecharModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+
+function salvarLancamento(e) {
+  e.preventDefault();
+  const obj = {
+    id: editingId || nextId++,
+    data: document.getElementById('fData').value,
+    descricao: document.getElementById('fDescricao').value,
+    tipo: document.getElementById('fTipo').value,
+    categoria: document.getElementById('fCategoria').value,
+    valor: parseFloat(document.getElementById('fValor').value),
+    obs: document.getElementById('fObs').value,
+    quemPagou: document.getElementById('fQuemPagou').value,
+  };
+  if(editingId) { lancamentos = lancamentos.map(l=>l.id===editingId?obj:l); }
+  else { lancamentos.push(obj); }
+  fecharModal();
+  saveData();
+  renderLancamentos();
+  toast('Lançamento salvo com sucesso!', 'success');
+}
+
+function editarLancamento(id) { abrirModal(id); }
+function excluirLancamento(id) {
+  if(!confirm('Excluir este lançamento?')) return;
+  lancamentos = lancamentos.filter(l=>l.id!==id);
+  saveData();
+  renderLancamentos();
+  toast('Lançamento excluído.', 'success');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODAL RECORRENTE
+// ═══════════════════════════════════════════════════════════════
+function abrirModalRecorrente() { document.getElementById('modalRecOverlay').classList.add('open'); }
+function fecharModalRec() { document.getElementById('modalRecOverlay').classList.remove('open'); }
+
+function salvarRecorrente(e) {
+  e.preventDefault();
+  const obj = {
+    id: Date.now(),
+    descricao: document.getElementById('rDescricao').value,
+    categoria: document.getElementById('rCategoria').value,
+    frequencia: document.getElementById('rFrequencia').value,
+    dia: parseInt(document.getElementById('rDia').value),
+    inicio: document.getElementById('rInicio').value,
+    fim: document.getElementById('rFim').value || null,
+    valor: parseFloat(document.getElementById('rValor').value),
+  };
+  recorrentes.push(obj);
+  fecharModalRec();
+  saveData();
+  renderRecorrentes();
+  toast('Recorrente cadastrada!', 'success');
+}
+
+function excluirRecorrente(id) {
+  if(!confirm('Excluir esta recorrente?')) return;
+  recorrentes = recorrentes.filter(r=>r.id!==id);
+  saveData();
+  renderRecorrentes();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DRE
+// ═══════════════════════════════════════════════════════════════
+function renderDRE() {
+  const ano = document.getElementById('dreAno').value;
+  // Pega meses que têm dados
+  const mesesComDados = [...new Set(lancamentos.filter(l=>l.data.startsWith(ano)).map(l=>dataMes(l.data)))].sort();
+  if(!mesesComDados.length) { document.getElementById('dreContainer').innerHTML='<p style="padding:20px;color:var(--muted)">Nenhum lançamento para este ano.</p>'; return; }
+
+  // Adiciona coluna TOTAL
+  const cols = [...mesesComDados, 'TOTAL'];
+
+  const dreRows = [
+    {label:'1. RECEITA BRUTA DE SERVIÇOS', style:'section'},
+    {label:'Faturamento de transporte', style:'indent', cat:'receita', tipo:'receita'},
+    {label:'Aportes de capital / Outros', style:'indent', cat:'outros', tipo:'receita'},
+    {label:'(=) RECEITA BRUTA TOTAL', style:'subtotal', calc: m => sumRec(m,'receita')+sumRec(m,'outros')},
+    {blank:true},
+    {label:'(-) Impostos sobre receita', style:'indent-neg', cat:'impostos', tipo:'saida'},
+    {label:'(=) RECEITA LÍQUIDA', style:'resultado', calc: m => sumRec(m,'receita')+sumRec(m,'outros')-sumSai(m,'impostos')},
+    {blank:true},
+    {label:'2. CUSTOS DOS SERVIÇOS PRESTADOS', style:'section'},
+    {label:'Despesas variáveis (combustível, pedágio)', style:'indent-neg', cat:'despvar', tipo:'saida'},
+    {label:'Manutenção', style:'indent-neg', cat:'manutencao', tipo:'saida'},
+    {label:'Seguro', style:'indent-neg', cat:'seguro', tipo:'saida'},
+    {label:'(=) TOTAL CUSTOS', style:'subtotal-neg', calc: m => sumSai(m,'despvar')+sumSai(m,'manutencao')+sumSai(m,'seguro')},
+    {blank:true},
+    {label:'(=) LUCRO BRUTO', style:'ebitda', calc: m =>
+      sumRec(m,'receita')+sumRec(m,'outros')-sumSai(m,'impostos')-sumSai(m,'despvar')-sumSai(m,'manutencao')-sumSai(m,'seguro')
+    },
+    {blank:true},
+    {label:'3. DESPESAS OPERACIONAIS', style:'section'},
+    {label:'Pessoal — salários e adiantamentos', style:'indent-neg', cat:'pessoal', tipo:'saida'},
+    {label:'Administrativo', style:'indent-neg', cat:'administrativo', tipo:'saida'},
+    {label:'(=) TOTAL DESPESAS OPERACIONAIS', style:'subtotal-neg', calc: m => sumSai(m,'pessoal')+sumSai(m,'administrativo')},
+    {blank:true},
+    {label:'(=) EBITDA / RESULTADO OPERACIONAL', style:'ebitda', calc: m =>
+      sumRec(m,'receita')+sumRec(m,'outros')-sumSai(m,'impostos')-sumSai(m,'despvar')-sumSai(m,'manutencao')-sumSai(m,'seguro')-sumSai(m,'pessoal')-sumSai(m,'administrativo')
+    },
+    {blank:true},
+    {label:'4. INVESTIMENTOS / FINANCIAMENTOS', style:'section'},
+    {label:'Implemento', style:'indent-neg', cat:'implemento', tipo:'saida'},
+    {label:'Caminhão', style:'indent-neg', cat:'caminhao', tipo:'saida'},
+    {label:'(=) TOTAL INVESTIMENTOS', style:'subtotal-neg', calc: m => sumSai(m,'implemento')+sumSai(m,'caminhao')},
+    {blank:true},
+    {label:'(=) RESULTADO LÍQUIDO DO PERÍODO', style:'lucro', calc: m =>
+      sumRec(m,'receita')+sumRec(m,'outros')-sumSai(m,'impostos')-sumSai(m,'despvar')-sumSai(m,'manutencao')-sumSai(m,'seguro')-sumSai(m,'pessoal')-sumSai(m,'administrativo')-sumSai(m,'implemento')-sumSai(m,'caminhao')
+    },
+  ];
+
+  function sumRec(m, cat) {
+    if(m==='TOTAL') return mesesComDados.reduce((s,mm)=>s+sumRec(mm,cat),0);
+    return lancamentos.filter(l=>dataMes(l.data)===m&&l.tipo==='receita'&&l.categoria===cat).reduce((s,l)=>s+l.valor,0);
+  }
+  function sumSai(m, cat) {
+    if(m==='TOTAL') return mesesComDados.reduce((s,mm)=>s+sumSai(mm,cat),0);
+    return lancamentos.filter(l=>dataMes(l.data)===m&&l.tipo==='saida'&&l.categoria===cat).reduce((s,l)=>s+l.valor,0);
+  }
+  function sumSaiCats(m, cats) {
+    return cats.reduce((s,c)=>s+sumSai(m,c),0);
+  }
+  function getVal(row, m) {
+    if(row.calc) return row.calc(m==='TOTAL'?'TOTAL':m);
+    if(row.cats) return sumSaiCats(m,row.cats);
+    if(row.cat&&row.tipo==='receita') return sumRec(m,row.cat);
+    if(row.cat&&row.tipo==='saida') return sumSai(m,row.cat);
+    return null;
+  }
+
+  const styleClass = {
+    section:'dre-section', indent:'dre-indent', 'indent-neg':'dre-indent',
+    subtotal:'dre-subsection', 'subtotal-neg':'dre-subsection',
+    resultado:'dre-resultado', ebitda:'dre-ebitda', lucro:'',
+  };
+
+  let html = `<table><thead><tr><th style="width:38%">Conta</th>`;
+  cols.forEach(m=>{ html+=`<th class="r${m==='TOTAL'?' mes-header':''}">${m==='TOTAL'?'TOTAL':mes2label(m)}</th>`; });
+  html+='</tr></thead><tbody>';
+
+  dreRows.forEach(row=>{
+    if(row.blank){ html+=`<tr class="dre-blank"><td colspan="${cols.length+1}"></td></tr>`; return; }
+    const cls = styleClass[row.style]||'';
+    const isNeg = row.tipo==='saida'||row.style?.includes('neg');
+    html+=`<tr class="${cls}"><td>${row.label}</td>`;
+    cols.forEach(m=>{
+      const v = getVal(row,m);
+      if(v===null){ html+=`<td></td>`; return; }
+      const neg = isNeg && row.style!=='resultado'&&row.style!=='ebitda';
+      let display = v===0 ? '—' : (neg?'-':'')+fmt(v);
+      let color = '';
+      if(row.style==='lucro') color=v>=0?'var(--green)':'var(--red)';
+      html+=`<td class="r" style="${color?'color:'+color:'font-variant-numeric:tabular-nums'}">${display}</td>`;
+    });
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  document.getElementById('dreContainer').innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FLUXO DE CAIXA FUTURO
+// ═══════════════════════════════════════════════════════════════
+function renderFluxo() {
+  const fatQ = parseFloat(document.getElementById('fatEstimado').value)||85000;
+  const fatMensal = fatQ * 2;
+  const meses = getMesesRange('2026-04','2026-12');
+
+  // Monta saídas por mês: recorrentes + parcelas fixas
+  function getSaidasMes(mes) {
+    const rec = getRecorrentesDoMes(mes);
+    const parc = parcelasFuturas.filter(p=>p.mes===mes);
+    // Agrupar por categoria
+    const byCat = {};
+    [...rec, ...parc].forEach(item=>{
+      const c = item.cat||item.categoria;
+      byCat[c]=(byCat[c]||0)+item.valor;
+    });
+    return byCat;
+  }
+
+  // Impostos: 13.56% do faturamento
+  const pctImp = 0.1356;
+
+  const rows = [
+    {label:'RECEITAS', tipo:'header'},
+    {label:'Faturamento quinzenal (×2)', tipo:'receita', fn:()=>fatMensal},
+    {label:'TOTAL RECEITAS', tipo:'total-rec', fn:()=>fatMensal},
+    {label:'', tipo:'spacer'},
+    {label:'SAÍDAS — CUSTOS OPERACIONAIS', tipo:'header'},
+    {label:'Diesel e Arla (2 quinzenas)', tipo:'saida', cat:'custos', key:'diesel'},
+    {label:'Pedágio (Morane)', tipo:'saida', cat:'custos', key:'pedagio'},
+    {label:'Seguro Caminhão (Allianz)', tipo:'saida', cat:'custos', key:'seguro'},
+    {label:'Manutenção / Oficina Jangada', tipo:'saida', cat:'custos', key:'ofic'},
+    {label:'SAÍDAS — PESSOAL', tipo:'header'},
+    {label:'Salários e Adiantamentos', tipo:'saida', cat:'salarios', key:'sal'},
+    {label:'SAÍDAS — FINANCIAMENTOS', tipo:'header'},
+    {label:'Parcelas caminhão e implemento', tipo:'saida', cat:'financ', key:'fin'},
+    {label:'Pneus (parcelas)', tipo:'saida', cat:'financ', key:'pneus'},
+    {label:'SAÍDAS — IMPOSTOS', tipo:'header'},
+    {label:`Impostos (${(pctImp*100).toFixed(2)}% do faturamento)`, tipo:'saida', key:'imp'},
+    {label:'SAÍDAS — ADMINISTRATIVO', tipo:'header'},
+    {label:'Contabilidade + Sistemas + Câmeras', tipo:'saida', cat:'despesas', key:'adm'},
+    {label:'', tipo:'spacer'},
+    {label:'TOTAL SAÍDAS', tipo:'total-sai'},
+    {label:'', tipo:'spacer'},
+    {label:'SALDO MENSAL', tipo:'saldo'},
+    {label:'SALDO ACUMULADO', tipo:'acum'},
+  ];
+
+  // Calcular para cada mês
+  const data = {};
+  let acum = 99476.75; // saldo final do extrato
+  meses.forEach(m=>{
+    const byCat = getSaidasMes(m);
+    // Diesel: recorrentes quinzenais de combustível
+    const diesel = getRecorrentesDoMes(m).filter(r=>r.cat==='custos'&&r.desc.toLowerCase().includes('diesel')).reduce((s,r)=>s+r.valor,0);
+    const pedagio = getRecorrentesDoMes(m).filter(r=>r.cat==='custos'&&r.desc.toLowerCase().includes('pedágio')).reduce((s,r)=>s+r.valor,0);
+    const seguro  = getRecorrentesDoMes(m).filter(r=>r.cat==='custos'&&r.desc.toLowerCase().includes('allianz')).reduce((s,r)=>s+r.valor,0);
+    const ofic    = parcelasFuturas.filter(p=>p.mes===m&&p.cat==='custos'&&!p.desc.toLowerCase().includes('pneu')).reduce((s,p)=>s+p.valor,0);
+    const sal     = getRecorrentesDoMes(m).filter(r=>r.cat==='salarios').reduce((s,r)=>s+r.valor,0);
+    const finPar  = parcelasFuturas.filter(p=>p.mes===m&&p.cat==='financ'&&!p.desc.toLowerCase().includes('pneu')).reduce((s,p)=>s+p.valor,0);
+    const pneus   = parcelasFuturas.filter(p=>p.mes===m&&p.desc.toLowerCase().includes('pneu')).reduce((s,p)=>s+p.valor,0);
+    const imp     = fatMensal * pctImp;
+    const adm     = getRecorrentesDoMes(m).filter(r=>r.cat==='despesas').reduce((s,r)=>s+r.valor,0);
+    const totalSai= diesel+pedagio+seguro+ofic+sal+finPar+pneus+imp+adm;
+    const saldo   = fatMensal - totalSai;
+    acum += saldo;
+    data[m] = {diesel,pedagio,seguro,ofic,sal,finPar,pneus,imp,adm,totalSai,saldo,acum:acum-saldo+saldo};
+  });
+  // recalc acum properly
+  acum=99476.75;
+  meses.forEach(m=>{acum+=data[m].saldo;data[m].acum=acum;});
+
+  // Render
+  let html = `<table><thead><tr><th style="width:30%">Item</th>`;
+  meses.forEach(m=>html+=`<th class="r mes-header">${mes2label(m)}</th>`);
+  html+=`<th class="r mes-header">TOTAL</th></tr></thead><tbody>`;
+
+  const getRowVal = (row,m) => {
+    const d=data[m];
+    switch(row.key){
+      case 'diesel':return d.diesel; case 'pedagio':return d.pedagio; case 'seguro':return d.seguro;
+      case 'ofic':return d.ofic; case 'sal':return d.sal; case 'fin':return d.finPar;
+      case 'pneus':return d.pneus; case 'imp':return d.imp; case 'adm':return d.adm;
+    }
+    return 0;
+  };
+
+  rows.forEach(row=>{
+    if(row.tipo==='spacer'){html+=`<tr style="height:8px"><td colspan="${meses.length+2}"></td></tr>`;return;}
+    if(row.tipo==='header'){
+      html+=`<tr><td colspan="${meses.length+2}" style="background:var(--paper2);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:7px 12px;font-weight:500">${row.label}</td></tr>`;return;
+    }
+    if(row.tipo==='receita'){
+      html+=`<tr class="fc-row-receita"><td style="padding-left:20px">${row.label}</td>`;
+      meses.forEach(()=>html+=`<td class="r valor-pos">+${fmt(fatMensal)}</td>`);
+      html+=`<td class="r valor-pos">+${fmt(fatMensal*meses.length)}</td></tr>`;return;
+    }
+    if(row.tipo==='total-rec'){
+      html+=`<tr style="background:var(--green-lt);font-weight:700"><td>${row.label}</td>`;
+      meses.forEach(()=>html+=`<td class="r valor-pos">+${fmt(fatMensal)}</td>`);
+      html+=`<td class="r valor-pos">+${fmt(fatMensal*meses.length)}</td></tr>`;return;
+    }
+    if(row.tipo==='saida'){
+      const total = meses.reduce((s,m)=>s+getRowVal(row,m),0);
+      html+=`<tr><td style="padding-left:20px">${row.label}</td>`;
+      meses.forEach(m=>{ const v=getRowVal(row,m); html+=`<td class="r${v?'valor-neg':''}">${v?'-'+fmt(v):'—'}</td>`; });
+      html+=`<td class="r valor-neg">-${fmt(total)}</td></tr>`;return;
+    }
+    if(row.tipo==='total-sai'){
+      const total = meses.reduce((s,m)=>s+data[m].totalSai,0);
+      html+=`<tr style="background:var(--red-lt);font-weight:700"><td>TOTAL SAÍDAS</td>`;
+      meses.forEach(m=>html+=`<td class="r valor-neg">-${fmt(data[m].totalSai)}</td>`);
+      html+=`<td class="r valor-neg">-${fmt(total)}</td></tr>`;return;
+    }
+    if(row.tipo==='saldo'){
+      const total = meses.reduce((s,m)=>s+data[m].saldo,0);
+      html+=`<tr style="background:var(--ink);font-weight:700"><td style="color:#fff">SALDO MENSAL</td>`;
+      meses.forEach(m=>{const v=data[m].saldo;html+=`<td class="r" style="color:${v>=0?'#4ade80':'#f87171'}">${v>=0?'+':''} ${fmt(v)}</td>`;});
+      html+=`<td class="r" style="color:${total>=0?'#4ade80':'#f87171'}">${total>=0?'+':''} ${fmt(total)}</td></tr>`;return;
+    }
+    if(row.tipo==='acum'){
+      html+=`<tr style="background:#1a1a2e;font-weight:700"><td style="color:#a5b4fc">SALDO ACUMULADO</td>`;
+      meses.forEach(m=>{const v=data[m].acum;html+=`<td class="r" style="color:${v>=0?'#6ee7b7':'#fca5a5'}">${fmt(v)}</td>`;});
+      html+=`<td></td></tr>`;return;
+    }
+  });
+
+  html+='</tbody></table>';
+  document.getElementById('fluxoContainer').innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GRÁFICOS
+// ═══════════════════════════════════════════════════════════════
+function renderCharts() {
+  const mesesReais = [...new Set(lancamentos.filter(l=>l.data>='2026-01').map(l=>dataMes(l.data)))].sort();
+
+  // Destruir charts existentes
+  Object.values(charts).forEach(c=>c.destroy&&c.destroy());
+  charts={};
+
+  // 1. Receita vs Saídas
+  const ctx1=document.getElementById('chartRecSai').getContext('2d');
+  charts.rs = new Chart(ctx1,{
+    type:'bar',
+    data:{
+      labels:mesesReais.map(mes2label),
+      datasets:[
+        {label:'Receita',data:mesesReais.map(m=>lancamentos.filter(l=>dataMes(l.data)===m&&l.tipo==='receita'&&l.categoria==='receita').reduce((s,l)=>s+l.valor,0)),backgroundColor:'#1a6b4566',borderColor:'#1a6b45',borderWidth:1.5,borderRadius:4},
+        {label:'Saídas',data:mesesReais.map(m=>lancamentos.filter(l=>dataMes(l.data)===m&&l.tipo==='saida').reduce((s,l)=>s+l.valor,0)),backgroundColor:'#b72b2b55',borderColor:'#b72b2b',borderWidth:1.5,borderRadius:4},
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:{size:11},boxWidth:12}}},scales:{y:{ticks:{callback:v=>'R$'+Math.round(v/1000)+'k'},grid:{color:'#f0ede8'}},x:{grid:{display:false}}}}
+  });
+
+  // 2. Composição saídas (pizza)
+  const catTotals = CATS_SAIDA.map(c=>({cat:c,val:lancamentos.filter(l=>l.tipo==='saida'&&l.categoria===c).reduce((s,l)=>s+l.valor,0)})).filter(x=>x.val>0);
+  const ctx2=document.getElementById('chartComposicao').getContext('2d');
+  charts.comp = new Chart(ctx2,{
+    type:'doughnut',
+    data:{
+      labels:catTotals.map(x=>CAT_LABELS[x.cat]),
+      datasets:[{data:catTotals.map(x=>x.val),backgroundColor:['#c84b3188','#2d4a8a88','#e8a02088','#5b21b688','#1a6b4588','#7a757088'],borderWidth:2,borderColor:'#fff'}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:10}}},cutout:'65%'}
+  });
+
+  // 3. Saldo acumulado (histórico)
+  const mTodos = [...new Set(lancamentos.map(l=>dataMes(l.data)))].sort();
+  let acumH=0;
+  const acumsH=mTodos.map(m=>{
+    const r=lancamentos.filter(l=>dataMes(l.data)===m&&l.tipo==='receita').reduce((s,l)=>s+l.valor,0);
+    const s=lancamentos.filter(l=>dataMes(l.data)===m&&l.tipo==='saida').reduce((s,l)=>s+l.valor,0);
+    acumH+=r-s; return acumH;
+  });
+  const ctx3=document.getElementById('chartSaldo').getContext('2d');
+  charts.saldo=new Chart(ctx3,{
+    type:'line',
+    data:{labels:mTodos.map(mes2label),datasets:[{label:'Saldo Acumulado',data:acumsH,borderColor:'#2d4a8a',backgroundColor:'#2d4a8a11',borderWidth:2,fill:true,tension:.3,pointRadius:4,pointBackgroundColor:'#2d4a8a'}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'R$'+Math.round(v/1000)+'k'},grid:{color:'#f0ede8'}},x:{grid:{display:false}}}}
+  });
+
+  // 4. Projeção
+  const fatQ=parseFloat(document.getElementById('fatEstimado')?.value)||85000;
+  const fatM=fatQ*2;
+  const mProj=getMesesRange();
+  let acumP=99476.75;
+  const projSaldos=mProj.map(m=>{
+    const rec=getRecorrentesDoMes(m);
+    const diesel=rec.filter(r=>r.cat==='custos'&&r.desc.toLowerCase().includes('diesel')).reduce((s,r)=>s+r.valor,0);
+    const outros=rec.filter(r=>!r.desc.toLowerCase().includes('diesel')).reduce((s,r)=>s+r.valor,0);
+    const parc=parcelasFuturas.filter(p=>p.mes===m).reduce((s,p)=>s+p.valor,0);
+    const imp=fatM*0.1356;
+    acumP+=fatM-diesel-outros-parc-imp;
+    return acumP;
+  });
+  const ctx4=document.getElementById('chartProjecao').getContext('2d');
+  charts.proj=new Chart(ctx4,{
+    type:'line',
+    data:{labels:mProj.map(mes2label),datasets:[
+      {label:'Saldo Acumulado Projetado',data:projSaldos,borderColor:'#7c3aed',backgroundColor:'#7c3aed11',borderWidth:2,fill:true,tension:.3,pointRadius:4,pointBackgroundColor:'#7c3aed'},
+      {label:'Zero',data:mProj.map(()=>0),borderColor:'#ef444488',borderDash:[5,5],borderWidth:1.5,pointRadius:0}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:{size:11},boxWidth:12}}},scales:{y:{ticks:{callback:v=>'R$'+Math.round(v/1000)+'k'},grid:{color:'#f0ede8'}},x:{grid:{display:false}}}}
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXPORTAÇÃO
+// ═══════════════════════════════════════════════════════════════
+function exportarExcel() {
+  // Gerar CSV simples para download
+  const header = 'Data,Descrição,Tipo,Categoria,Quem Pagou,Valor,Observação\n';
+  const rows = lancamentos.map(l=>`${l.data},"${l.descricao}",${l.tipo},${CAT_LABELS[l.categoria]},"${l.quemPagou||''}",${l.tipo==='receita'?l.valor:-l.valor},"${l.obs||''}"`).join('\n');
+  download('lancamentos_lors.csv', header+rows, 'text/csv');
+  toast('CSV exportado!', 'success');
+}
+
+function exportarDRE() {
+  toast('Para exportar a DRE completa em Excel, use o arquivo .xlsx gerado anteriormente.', 'success');
+}
+function exportarFluxo() {
+  toast('Para exportar o Fluxo em Excel, use o arquivo .xlsx gerado anteriormente.', 'success');
+}
+
+function download(filename, content, type) {
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+content],{type}));
+  a.download=filename; a.click();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TOASTS
+// ═══════════════════════════════════════════════════════════════
+function toast(msg, type='success') {
+  const div=document.createElement('div');
+  div.className=`toast ${type}`;
+  div.innerHTML=`<span>${type==='success'?'✓':'✕'}</span> ${msg}`;
+  document.getElementById('toastContainer').appendChild(div);
+  setTimeout(()=>div.remove(),3000);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+async function initApp() {
+  updateCategorias();
+  renderLancamentos();
+  renderRecorrentes();
+  updateKPIs();
+
+  // Restore last sync timestamp display
+  const lastSync = localStorage.getItem('lors_last_sync');
+  if (lastSync) setLastSync(Number(lastSync));
+
+  // Connect to Google Drive if already configured
+  if (gdriveConfig.url) {
+    setSyncStatus('syncing', 'Carregando Drive…');
+    const ok = await carregarDoGDrive();
+    if (ok) {
+      renderLancamentos();
+      renderRecorrentes();
+      updateKPIs();
+    }
+  } else {
+    setSyncStatus('disconnected');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ORÇAMENTO DE FRETE
+// ═══════════════════════════════════════════════════════════════
+function calcOrcamento() {
+  const dist     = parseFloat(document.getElementById('orcDistancia').value) || 0;
+  const ton      = parseFloat(document.getElementById('orcToneladas').value) || 0;
+  const precTon  = parseFloat(document.getElementById('orcPrecTon').value)   || 0;
+  const consumo  = parseFloat(document.getElementById('orcConsumo').value)   || 1;
+  const pDiesel  = parseFloat(document.getElementById('orcDiesel').value)    || 0;
+  const pArla    = parseFloat(document.getElementById('orcArla').value)      || 0;
+  const pedagio  = parseFloat(document.getElementById('orcPedagio').value)   || 0;
+  const viagens  = parseFloat(document.getElementById('orcViagens').value)   || 0;
+  const fixPessoal    = parseFloat(document.getElementById('orcFixPessoal').value)    || 0;
+  const fixAdm        = parseFloat(document.getElementById('orcFixAdm').value)        || 0;
+  const fixSeguro     = parseFloat(document.getElementById('orcFixSeguro').value)     || 0;
+  const fixImpostos   = parseFloat(document.getElementById('orcFixImpostos').value)   || 0;
+  const fixManutencao = parseFloat(document.getElementById('orcFixManutencao').value) || 0;
+  const fixos         = fixPessoal + fixAdm + fixSeguro + fixImpostos + fixManutencao;
+  const finCaminhao   = parseFloat(document.getElementById('orcFinCaminhao').value)   || 0;
+  const finImplemento = parseFloat(document.getElementById('orcFinImplemento').value) || 0;
+  const financ        = finCaminhao + finImplemento;
+
+  const distTotal   = dist * 2;                        // ida + volta (retorno vazio)
+  const litrosDiesel= distTotal / consumo;
+  const litrosArla  = litrosDiesel * 0.05;             // ~5% do diesel
+  document.getElementById('orcKmTotal').textContent = `↺ consumo calculado em ${distTotal} km (ida ${dist} km + volta ${dist} km)`;
+  const receita     = ton * precTon;
+  const custoDiesel = litrosDiesel * pDiesel;
+  const custoArla   = litrosArla * pArla;
+  const custoVar    = custoDiesel + custoArla + pedagio;
+  const margContrib = receita - custoVar;
+  const margPct     = receita > 0 ? (margContrib / receita * 100) : 0;
+  const totalFixosMes = fixos + financ;
+  const receitaMes  = receita * viagens;
+  const custoVarMes = custoVar * viagens;
+  const lucroContrib= receitaMes - custoVarMes;
+  const resultado   = lucroContrib - totalFixosMes;
+  const breakeven   = margContrib > 0 ? Math.ceil(totalFixosMes / margContrib) : null;
+  const custoTonKm  = custoVar > 0 ? (custoVar / ton / dist) : 0;
+  const recTonKm    = receita  > 0 ? (receita  / ton / dist) : 0;
+
+  function row(label, val, type='neutral') {
+    const color = type==='pos'?'var(--green)':type==='neg'?'var(--red)':'var(--muted)';
+    const sign  = type==='pos'?'+':type==='neg'?'-':'';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)">
+      <span style="color:var(--muted);font-size:12px">${label}</span>
+      <span style="font-weight:600;color:${color};font-variant-numeric:tabular-nums">${sign}${fmt(Math.abs(val))}</span>
+    </div>`;
+  }
+
+  document.getElementById('orcPorViagem').innerHTML =
+    row('Receita bruta', receita, 'pos') +
+    row(`Diesel — ${distTotal}km ÷ ${consumo}km/L = ${litrosDiesel.toFixed(0)}L × R$${pDiesel.toFixed(2)}`, custoDiesel, 'neg') +
+    row(`Arla 32 — ${litrosArla.toFixed(0)}L × R$${pArla.toFixed(2)}`, custoArla, 'neg') +
+    row('Pedágio', pedagio, 'neg') +
+    `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;margin-top:4px">
+      <span style="font-family:var(--font-head);font-weight:700;font-size:13px">Margem de Contribuição</span>
+      <span style="font-family:var(--font-head);font-weight:700;font-size:15px;color:${margContrib>=0?'var(--green)':'var(--red)'}">${margContrib>=0?'+':''}${fmt(margContrib)} <small style="font-size:11px;opacity:.7">(${margPct.toFixed(1)}%)</small></span>
+    </div>`;
+
+  document.getElementById('orcMensal').innerHTML =
+    row(`Receita (${viagens} viagens)`, receitaMes, 'pos') +
+    row('Custos variáveis', custoVarMes, 'neg') +
+    row('Lucro de contribuição', lucroContrib, lucroContrib>=0?'pos':'neg') +
+    row(`Pessoal`, fixPessoal, 'neg') +
+    row(`Administrativo`, fixAdm, 'neg') +
+    row(`Manutenção`, fixManutencao, 'neg') +
+    row(`Seguro`, fixSeguro, 'neg') +
+    row(`Impostos`, fixImpostos, 'neg') +
+    row(`Caminhão`, finCaminhao, 'neg') +
+    row(`Implemento`, finImplemento, 'neg') +
+    `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;margin-top:4px">
+      <span style="font-family:var(--font-head);font-weight:700;font-size:13px">Resultado Mensal</span>
+      <span style="font-family:var(--font-head);font-weight:700;font-size:15px;color:${resultado>=0?'var(--green)':'var(--red)'}">${resultado>=0?'+':''}${fmt(resultado)}</span>
+    </div>`;
+
+  const bgRes = resultado>=0 ? 'var(--green-lt)' : 'var(--red-lt)';
+  const corRes = resultado>=0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('orcCardResultado').style.background = bgRes;
+  document.getElementById('orcCardResultado').style.border = `1px solid ${corRes}`;
+  document.getElementById('orcCardResultado').innerHTML = `
+    <div style="font-size:11px;color:${corRes};text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-bottom:6px">Resultado Líquido Mensal</div>
+    <div style="font-family:var(--font-head);font-size:26px;font-weight:800;color:${corRes}">${resultado>=0?'+':''}${fmt(resultado)}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">com ${viagens} viagens/mês</div>`;
+
+  document.getElementById('orcCardBreakeven').innerHTML = `
+    <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-bottom:6px">Ponto de Equilíbrio</div>
+    <div style="font-family:var(--font-head);font-size:26px;font-weight:800;color:var(--accent)">${breakeven !== null ? breakeven : '—'} <span style="font-size:14px;font-weight:400">viagens/mês</span></div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">para cobrir todos os custos fixos</div>`;
+
+  document.getElementById('orcCardTonKm').innerHTML = `
+    <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-bottom:6px">Custo por Ton·km</div>
+    <div style="font-family:var(--font-head);font-size:26px;font-weight:800;color:var(--ink)">R$ ${custoTonKm.toFixed(3)}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">receita: R$ ${recTonKm.toFixed(3)} / ton·km</div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SÓCIOS
+// ═══════════════════════════════════════════════════════════════
+function renderSocios() {
+  const socios = ['Otávio', 'Rodrigo'];
+  const cards = document.getElementById('sociosCards');
+  const tbDespesas = document.getElementById('tbodySociosDespesas');
+  const tbPag      = document.getElementById('tbodySociosPag');
+  if (!cards || !tbDespesas || !tbPag) return;
+
+  // despesas pagas pelos sócios (saídas onde quemPagou = sócio)
+  const despSocios = lancamentos.filter(l => l.tipo === 'saida' && (l.quemPagou === 'Otávio' || l.quemPagou === 'Rodrigo'));
+
+  // IDs de lançamentos já vinculados a um registro de pagSocio (evita dupla contagem)
+  const linkedIds = new Set(pagamentosSocios.map(p => p.lancamentoId).filter(x => x != null));
+
+  // Aportes diretos: receitas com quemPagou = sócio cadastradas pelo form principal
+  const aportesLanc = lancamentos.filter(l => l.tipo === 'receita' && (l.quemPagou === 'Otávio' || l.quemPagou === 'Rodrigo') && !linkedIds.has(l.id));
+
+  // Cards de resumo
+  cards.innerHTML = socios.map(s => {
+    const totalDesp       = despSocios.filter(l => l.quemPagou === s).reduce((acc, l) => acc + l.valor, 0);
+    const totalReemb      = pagamentosSocios.filter(p => p.socio === s && p.tipo !== 'aporte').reduce((acc, p) => acc + p.valor, 0);
+    const totalAportesMod = pagamentosSocios.filter(p => p.socio === s && p.tipo === 'aporte').reduce((acc, p) => acc + p.valor, 0);
+    const totalAportesLanc= aportesLanc.filter(l => l.quemPagou === s).reduce((acc, l) => acc + l.valor, 0);
+    const totalAportes    = totalAportesMod + totalAportesLanc;
+    const saldo           = totalDesp + totalAportes - totalReemb;
+    const cor = saldo > 0 ? 'var(--red)' : 'var(--green)';
+    const bgCor = saldo > 0 ? 'var(--red-lt)' : 'var(--green-lt)';
+    return `<div style="background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:20px">
+      <div style="font-family:var(--font-head);font-size:16px;font-weight:700;margin-bottom:14px">${s}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px">Despesas pagas</div>
+          <div style="font-family:var(--font-head);font-size:17px;font-weight:700;color:var(--accent)">${fmt(totalDesp)}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px">Reembolsado</div>
+          <div style="font-family:var(--font-head);font-size:17px;font-weight:700;color:var(--green)">${fmt(totalReemb)}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px">Aportes</div>
+          <div style="font-family:var(--font-head);font-size:17px;font-weight:700;color:var(--yellow)">${fmt(totalAportes)}</div>
+        </div>
+        <div style="background:${bgCor};border-radius:var(--r);padding:10px;text-align:center">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:${cor};margin-bottom:4px">${saldo > 0 ? 'A reembolsar' : 'Saldo'}</div>
+          <div style="font-family:var(--font-head);font-size:17px;font-weight:800;color:${cor}">${fmt(Math.abs(saldo))}</div>
+        </div>
+      </div>
+      <div style="margin-top:12px;text-align:right">
+        <button class="btn btn-sm btn-primary" onclick="abrirModalPagSocio('${s}')">+ Registrar pagamento</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Tabela de despesas pagas pelos sócios
+  tbDespesas.innerHTML = despSocios.length === 0
+    ? `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Nenhuma despesa paga por sócios</td></tr>`
+    : despSocios.sort((a,b)=>b.data.localeCompare(a.data)).map(l =>
+        `<tr>
+          <td>${l.data.split('-').reverse().join('/')}</td>
+          <td>${l.descricao}</td>
+          <td>${CAT_LABELS[l.categoria]||l.categoria}</td>
+          <td><span style="font-weight:600;color:var(--accent)">${l.quemPagou}</span></td>
+          <td class="r neg">${fmt(l.valor)}</td>
+        </tr>`
+      ).join('');
+
+  // Tabela de pagamentos registrados (pagamentosSocios + aportes diretos de lancamentos)
+  const aporteBadge = `<span style="background:var(--green-lt);color:var(--green);padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600">Aporte</span>`;
+  const reembBadge  = `<span style="background:var(--blue-lt);color:var(--accent);padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600">Reembolso</span>`;
+
+  const rowsPagSocios = pagamentosSocios.map(p => {
+    const isAporte = p.tipo === 'aporte';
+    return { data: p.data, html: `<tr>
+      <td>${p.data.split('-').reverse().join('/')}</td>
+      <td><span style="font-weight:600;color:var(--accent)">${p.socio}</span></td>
+      <td>${isAporte ? aporteBadge : reembBadge}</td>
+      <td>${p.desc}</td>
+      <td class="r ${isAporte?'pos':'neg'}">${fmt(p.valor)}</td>
+      <td style="text-align:center"><button class="btn btn-danger btn-sm" onclick="excluirPagSocio(${p.id})">✕</button></td>
+    </tr>` };
+  });
+
+  const rowsAporteLanc = aportesLanc.map(l => ({
+    data: l.data, html: `<tr>
+      <td>${l.data.split('-').reverse().join('/')}</td>
+      <td><span style="font-weight:600;color:var(--accent)">${l.quemPagou}</span></td>
+      <td>${aporteBadge}</td>
+      <td>${l.descricao}</td>
+      <td class="r pos">${fmt(l.valor)}</td>
+      <td style="text-align:center;color:var(--muted);font-size:11px" title="Editável em Todos">—</td>
+    </tr>`
+  }));
+
+  const todasLinhas = [...rowsPagSocios, ...rowsAporteLanc].sort((a,b) => b.data.localeCompare(a.data));
+  tbPag.innerHTML = todasLinhas.length === 0
+    ? `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Nenhum pagamento registrado</td></tr>`
+    : todasLinhas.map(r => r.html).join('');
+}
+
+function abrirModalPagSocio(socio) {
+  const overlay = document.getElementById('modalPagSocioOverlay');
+  document.getElementById('formPagSocio').reset();
+  document.getElementById('psData').value = new Date().toISOString().slice(0,10);
+  if (socio) document.getElementById('psSocio').value = socio;
+  overlay.classList.add('open');
+}
+
+function fecharModalPagSocio() {
+  document.getElementById('modalPagSocioOverlay').classList.remove('open');
+}
+
+function salvarPagSocio(e) {
+  e.preventDefault();
+  const socio     = document.getElementById('psSocio').value;
+  const tipo      = document.getElementById('psTipo').value;
+  const data      = document.getElementById('psData').value;
+  const categoria = document.getElementById('psCategoria').value;
+  const desc      = document.getElementById('psDesc').value.trim();
+  const valor     = parseFloat(document.getElementById('psValor').value);
+  if (!socio || !data || !desc || !valor) return;
+
+  // Cria lançamento vinculado
+  const lancTipo = tipo === 'aporte' ? 'receita' : 'saida';
+  const lancCat  = tipo === 'aporte' ? 'receita' : categoria;
+  const lancDesc = tipo === 'aporte'
+    ? `Aporte ${socio}: ${desc}`
+    : `Reembolso ${socio}: ${desc}`;
+  const lancId = nextId++;
+  lancamentos.push({ id: lancId, tipo: lancTipo, categoria: lancCat, descricao: lancDesc, valor, data, quemPagou: tipo === 'aporte' ? socio : 'LORS', obs: '' });
+
+  pagamentosSocios.push({ id: nextId++, lancamentoId: lancId, socio, tipo, categoria, data, desc, valor });
+  saveData();
+  fecharModalPagSocio();
+  renderSocios();
+  renderLancamentos();
+  updateKPIs();
+  showToast(`${tipo === 'aporte' ? 'Aporte' : 'Reembolso'} de ${fmt(valor)} registrado e adicionado aos lançamentos`);
+}
+
+function excluirPagSocio(id) {
+  if (!confirm('Excluir este pagamento? O lançamento vinculado também será removido.')) return;
+  const pag = pagamentosSocios.find(p => p.id === id);
+  if (pag && pag.lancamentoId != null) {
+    lancamentos = lancamentos.filter(l => l.id !== pag.lancamentoId);
+  }
+  pagamentosSocios = pagamentosSocios.filter(p => p.id !== id);
+  saveData();
+  renderSocios();
+  renderLancamentos();
+  updateKPIs();
+  showToast('Pagamento e lançamento vinculado excluídos');
+}
+
+// ── PWA Service Worker ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
