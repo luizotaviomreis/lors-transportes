@@ -2,7 +2,7 @@
   "name": "LORS Transportes",
   "short_name": "LORS",
   "description": "Gestão Financeira LORS Transportes",
-  "start_url": "/",
+  "start_url": "/lors-transportes/",
   "display": "standalone",
   "background_color": "#0f0e11",
   "theme_color": "#2d4a8a",
