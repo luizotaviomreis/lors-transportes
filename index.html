@@ -2870,7 +2870,7 @@ function doPost(e) {
 }`;
 
 async function salvarBackup(tipo = 'manual') {
-  if (!currentUser) return;
+  if (!currentUser || currentUser.email !== ADMIN_EMAIL) return;
   const payload = {
     lancamentos, recorrentes, nextId, pagamentosSocios,
     savedAt: new Date().toISOString(),
@@ -2918,6 +2918,7 @@ async function salvarBackup(tipo = 'manual') {
 }
 
 async function renderBackups() {
+  if (!currentUser || currentUser.email !== ADMIN_EMAIL) return;
   const autoOn   = localStorage.getItem(BACKUP_AUTO_KEY) === '1';
   const lastDate = localStorage.getItem(BACKUP_LAST_KEY);
   const toggle   = document.getElementById('backupAutoToggle');
@@ -2962,6 +2963,7 @@ async function renderBackups() {
 }
 
 async function downloadBackupById(id) {
+  if (!currentUser || currentUser.email !== ADMIN_EMAIL) return;
   const snap = await db.collection('backups').doc(id).get();
   if (!snap.exists) return;
   const d = snap.data();
@@ -2975,6 +2977,7 @@ async function downloadBackupById(id) {
 }
 
 async function deletarBackup(id) {
+  if (!currentUser || currentUser.email !== ADMIN_EMAIL) return;
   if (!confirm('Excluir este backup permanentemente?')) return;
   await db.collection('backups').doc(id).delete();
   renderBackups();
@@ -3011,7 +3014,7 @@ function copiarScriptBackup() {
 
 // Verificar auto-backup na inicialização
 function verificarAutoBackup() {
-  if (!currentUser) return;
+  if (!currentUser || currentUser.email !== ADMIN_EMAIL) return;
   if (localStorage.getItem(BACKUP_AUTO_KEY) !== '1') return;
   const last = localStorage.getItem(BACKUP_LAST_KEY);
   if (!last) { salvarBackup('auto'); return; }
