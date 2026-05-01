@@ -4,13 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>LORS Transportes — Gestão Financeira</title>
-<link rel="manifest" href="/manifest.json">
+<link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#2d4a8a">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="LORS Transportes">
-<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -803,8 +803,11 @@ textarea { resize: vertical; min-height: 60px; }
     <!-- ── Faturamento ── -->
     <div id="pageFaturamento" style="display:none">
 
-      <!-- Filtros -->
+      <!-- Toggle + Filtros -->
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:20px">
+        <button id="fatBtnQuinzena" class="btn btn-primary btn-sm" onclick="setFatView('quinzena')">◑ Por Quinzena</button>
+        <button id="fatBtnViagem"   class="btn btn-sm"             onclick="setFatView('viagem')">☰ Por Viagem</button>
+        <div style="flex:1;min-width:10px"></div>
         <select id="fatFiltroAno" onchange="renderFaturamento()" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--font-mono);font-size:12px;background:#fff">
           <option value="">Todos os anos</option>
         </select>
@@ -814,27 +817,33 @@ textarea { resize: vertical; min-height: 60px; }
         <input type="date" id="fatFiltroDataIni" onchange="renderFaturamento()" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--font-mono);font-size:12px;background:#fff" title="Data início">
         <span style="font-size:11px;color:var(--muted)">até</span>
         <input type="date" id="fatFiltroDataFim" onchange="renderFaturamento()" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--font-mono);font-size:12px;background:#fff" title="Data fim">
-        <button class="btn btn-sm" onclick="limparFiltrosFat()">Limpar filtros</button>
+        <button class="btn btn-sm" onclick="limparFiltrosFat()">Limpar</button>
       </div>
 
       <!-- Cards de resumo -->
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px" id="fatCards"></div>
 
-      <!-- Tabela -->
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th onclick="sortFat('data')" style="cursor:pointer" title="Ordenar por data">Data ⇅</th>
-              <th onclick="sortFat('descricao')" style="cursor:pointer">Descrição ⇅</th>
-              <th class="r" onclick="sortFat('ton')" style="cursor:pointer">Toneladas ⇅</th>
-              <th class="r" onclick="sortFat('preco')" style="cursor:pointer">R$/ton ⇅</th>
-              <th class="r" onclick="sortFat('valor')" style="cursor:pointer">Valor Total ⇅</th>
-            </tr>
-          </thead>
-          <tbody id="tbodyFaturamento"></tbody>
-          <tfoot id="tfootFaturamento"></tfoot>
-        </table>
+      <!-- Visão por quinzena -->
+      <div id="fatContainerQuinzena"></div>
+
+      <!-- Visão por viagem -->
+      <div id="fatContainerViagem" style="display:none">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th onclick="sortFat('data')" style="cursor:pointer" title="Ordenar por data">Data ⇅</th>
+                <th style="cursor:default;color:var(--muted)">Quinzena</th>
+                <th class="r" onclick="sortFat('ton')" style="cursor:pointer">Toneladas ⇅</th>
+                <th class="r" onclick="sortFat('preco')" style="cursor:pointer">R$/ton ⇅</th>
+                <th class="r" onclick="sortFat('total')" style="cursor:pointer">Valor Total ⇅</th>
+                <th style="cursor:default;color:var(--muted)">Pgto previsto</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyFaturamento"></tbody>
+            <tfoot id="tfootFaturamento"></tfoot>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -1395,8 +1404,9 @@ async function loadDataFromFirestore() {
       recorrentes      = d.recorrentes      || recorrentes;
       nextId           = d.nextId           || nextId;
       pagamentosSocios = d.pagamentosSocios || pagamentosSocios;
+      faturamentos     = d.faturamentos     || faturamentos;
       // Também salvar local como cache
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos }));
     }
   } catch(e) {
     console.warn('Firestore indisponível, usando cache local.', e);
@@ -1410,7 +1420,7 @@ async function saveDataToFirestore() {
     const badge = document.getElementById('cloudSyncBadge');
     if (badge) { badge.textContent = '☁ salvando…'; badge.style.color = 'var(--yellow)'; }
     await db.collection('appdata').doc('main').set({
-      lancamentos, recorrentes, nextId, pagamentosSocios,
+      lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       updatedBy: currentUser.email
     });
@@ -1527,7 +1537,7 @@ async function togglePerm(uid, perm, val) {
 const STORAGE_KEY = 'lors_financeiro_v1';
 
 function saveData() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos }));
   saveDataToFirestore();
   if (gdriveConfig.url && gdriveConfig.autoSync !== false) {
     sincronizarGDrive(true);
@@ -1941,6 +1951,7 @@ const parcelasFuturas = [
 
 let nextId           = _stored ? _stored.nextId           : 75;
 let pagamentosSocios = _stored ? (_stored.pagamentosSocios||[]) : [];
+let faturamentos     = _stored ? (_stored.faturamentos    ||[]) : [];
 let editingId  = null;
 let currentTab = 'todos';
 let currentMes = '';
@@ -2896,22 +2907,49 @@ function excluirPagSocio(id) {
 // ═══════════════════════════════════════════════════════════════
 // FATURAMENTO
 // ═══════════════════════════════════════════════════════════════
-let fatSortCol = 'data', fatSortAsc = true;
+let fatSortCol = 'data', fatSortAsc = false;
+let fatView = 'quinzena'; // 'quinzena' | 'viagem'
 
-function parseFatLanc(l) {
-  // Tenta extrair ton e preco do campo obs ou da descrição
-  let ton = null, preco = null;
-  if (l.obs) {
-    const mTon   = l.obs.match(/([\d,.]+)\s*ton/i);
-    const mPreco = l.obs.match(/R\$\s*([\d,.]+)\s*\/ton/i);
-    if (mTon)   ton   = parseFloat(mTon[1].replace(',','.'));
-    if (mPreco) preco = parseFloat(mPreco[1].replace(',','.'));
-  }
-  if (!ton || !preco) {
-    const mDesc = l.descricao.match(/([\d,.]+)\s*ton\s*[×x]\s*R\$\s*([\d,.]+)/i);
-    if (mDesc) { ton = parseFloat(mDesc[1].replace(',','.')); preco = parseFloat(mDesc[2].replace(',','.')); }
-  }
-  return { ...l, ton: ton || null, preco: preco || null };
+function setFatView(v) {
+  fatView = v;
+  document.getElementById('fatContainerQuinzena').style.display = v === 'quinzena' ? '' : 'none';
+  document.getElementById('fatContainerViagem').style.display   = v === 'viagem'   ? '' : 'none';
+  document.getElementById('fatBtnQuinzena').className = 'btn btn-sm' + (v === 'quinzena' ? ' btn-primary' : '');
+  document.getElementById('fatBtnViagem').className   = 'btn btn-sm' + (v === 'viagem'   ? ' btn-primary' : '');
+  renderFaturamento();
+}
+
+// Retorna 1 (dias 1-15) ou 2 (dias 16-31) para uma data ISO
+function getQuinzena(dataISO) {
+  return parseInt(dataISO.slice(8, 10), 10) <= 15 ? 1 : 2;
+}
+
+// Retorna chave de agrupamento: "YYYY-MM-Q"
+function getPeriodoKey(dataISO) {
+  return dataISO.slice(0, 7) + '-' + getQuinzena(dataISO);
+}
+
+// Retorna data de pagamento esperada (ISO) dado uma data de entrega
+function calcDataPagamento(dataISO) {
+  const [ano, mes] = dataISO.split('-').map(Number);
+  const q = getQuinzena(dataISO);
+  let anoP = ano, mesP = mes + 1;
+  if (mesP > 12) { mesP = 1; anoP++; }
+  const diaAlvo = q === 1 ? 1 : 15;
+  let dt = new Date(anoP, mesP - 1, diaAlvo);
+  const dow = dt.getDay(); // 0=Dom, 6=Sab
+  if (dow === 0) dt.setDate(dt.getDate() + 1);
+  else if (dow === 6) dt.setDate(dt.getDate() + 2);
+  const pad = n => String(n).padStart(2, '0');
+  return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`;
+}
+
+// Label legível da quinzena a partir da chave "YYYY-MM-Q"
+function labelPeriodo(key) {
+  const parts = key.split('-'); // ["YYYY","MM","Q"]
+  const ano = parts[0], mes = parseInt(parts[1], 10), q = parts[2];
+  const meses = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  return `${q === '1' ? '1ª' : '2ª'} Quinzena — ${meses[mes]}/${ano}`;
 }
 
 function renderFaturamento() {
@@ -2920,13 +2958,8 @@ function renderFaturamento() {
   const dataIni = document.getElementById('fatFiltroDataIni').value;
   const dataFim = document.getElementById('fatFiltroDataFim').value;
 
-  // Pegar todas as receitas
-  let dados = lancamentos
-    .filter(l => l.tipo === 'receita' && l.categoria === 'receita')
-    .map(parseFatLanc);
-
-  // Preencher selects de ano/mês dinamicamente
-  const anos = [...new Set(dados.map(l => l.data.slice(0,4)))].sort().reverse();
+  // Preencher selects dinamicamente
+  const anos = [...new Set(faturamentos.map(f => f.data.slice(0,4)))].sort().reverse();
   const selAno = document.getElementById('fatFiltroAno');
   const selMes = document.getElementById('fatFiltroMes');
   const anoAtual = selAno.value;
@@ -2940,67 +2973,158 @@ function renderFaturamento() {
       return `<option value="${v}"${v===mesAtual?' selected':''}>${n}</option>`;
     }).join('');
 
-  // Aplicar filtros
-  if (anoSel)  dados = dados.filter(l => l.data.startsWith(anoSel));
-  if (mesSel)  dados = dados.filter(l => l.data.slice(5,7) === mesSel);
-  if (dataIni) dados = dados.filter(l => l.data >= dataIni);
-  if (dataFim) dados = dados.filter(l => l.data <= dataFim);
-
-  // Ordenação
-  dados.sort((a,b) => {
-    let va = a[fatSortCol], vb = b[fatSortCol];
-    if (fatSortCol === 'ton' || fatSortCol === 'preco' || fatSortCol === 'valor') { va = va||0; vb = vb||0; }
-    if (va < vb) return fatSortAsc ? -1 : 1;
-    if (va > vb) return fatSortAsc ?  1 : -1;
-    return 0;
-  });
+  // Filtrar
+  let dados = [...faturamentos];
+  if (anoSel)  dados = dados.filter(f => f.data.startsWith(anoSel));
+  if (mesSel)  dados = dados.filter(f => f.data.slice(5,7) === mesSel);
+  if (dataIni) dados = dados.filter(f => f.data >= dataIni);
+  if (dataFim) dados = dados.filter(f => f.data <= dataFim);
 
   // Cards de resumo
-  const totalValor = dados.reduce((s,l) => s+l.valor, 0);
-  const totalTon   = dados.reduce((s,l) => s+(l.ton||0), 0);
+  const totalValor = dados.reduce((s,f) => s + f.total, 0);
+  const totalTon   = dados.reduce((s,f) => s + f.ton,   0);
   const nViagens   = dados.length;
-  const mediaViag  = nViagens ? totalValor/nViagens : 0;
-  const mediaPreco = dados.filter(l=>l.preco).length
-    ? dados.filter(l=>l.preco).reduce((s,l)=>s+l.preco,0)/dados.filter(l=>l.preco).length : 0;
+  const mediaViag  = nViagens ? totalValor / nViagens : 0;
 
   document.getElementById('fatCards').innerHTML = [
-    { label:'Total Faturado',    val: fmt(totalValor), color:'var(--green)',  bg:'var(--green-lt)' },
-    { label:'Nº de Viagens',     val: nViagens,        color:'var(--accent)', bg:'var(--blue-lt)'  },
-    { label:'Total Transportado',val: totalTon.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' ton', color:'var(--ink)', bg:'#fff' },
-    { label:'Média por Viagem',  val: fmt(mediaViag),  color:'var(--muted)',  bg:'#fff'            },
+    { label:'Total Faturado',     val: fmt(totalValor),  color:'var(--green)',  bg:'var(--green-lt)' },
+    { label:'Nº de Viagens',      val: nViagens,         color:'var(--accent)', bg:'var(--blue-lt)'  },
+    { label:'Total Transportado', val: totalTon.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' ton', color:'var(--ink)', bg:'#fff' },
+    { label:'Média por Viagem',   val: fmt(mediaViag),   color:'var(--muted)',  bg:'#fff'            },
   ].map(c => `<div style="background:${c.bg};border:1px solid var(--border);border-radius:var(--r);padding:18px 20px">
     <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px">${c.label}</div>
     <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:${c.color}">${c.val}</div>
   </div>`).join('');
 
-  // Tabela
+  if (fatView === 'quinzena') {
+    renderFaturamentoQuinzena(dados);
+  } else {
+    renderFaturamentoViagem(dados);
+  }
+}
+
+function renderFaturamentoQuinzena(dados) {
+  const container = document.getElementById('fatContainerQuinzena');
+  if (dados.length === 0) {
+    container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">Nenhuma viagem encontrada para os filtros selecionados.</div>';
+    return;
+  }
+
+  // Agrupar por período
+  const grupos = {};
+  dados.forEach(f => {
+    const key = getPeriodoKey(f.data);
+    if (!grupos[key]) grupos[key] = [];
+    grupos[key].push(f);
+  });
+
+  const hoje = new Date().toISOString().slice(0,10);
+  const keysOrdenadas = Object.keys(grupos).sort().reverse();
+
+  container.innerHTML = keysOrdenadas.map(key => {
+    const viagens  = grupos[key].sort((a,b) => a.data.localeCompare(b.data));
+    const totalGrp = viagens.reduce((s,f) => s + f.total, 0);
+    const tonGrp   = viagens.reduce((s,f) => s + f.ton,   0);
+    const dataPgto = calcDataPagamento(viagens[0].data);
+    const pgtoFmt  = dataPgto.split('-').reverse().join('/');
+    const pago     = dataPgto < hoje;
+    const pgtoColor = pago ? 'var(--green)' : 'var(--accent)';
+    const pgtoLabel = pago ? `✓ Pago em ${pgtoFmt}` : `Pgto previsto: ${pgtoFmt}`;
+    return `<div style="background:#fff;border:1px solid var(--border);border-radius:var(--r);margin-bottom:16px;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;cursor:pointer;user-select:none" onclick="toggleFatGrupo('${key}')">
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+          <div style="font-family:var(--font-head);font-size:14px;font-weight:700">${labelPeriodo(key)}</div>
+          <div style="font-size:11px;color:var(--muted)">${viagens.length} viagem${viagens.length!==1?'s':''} · ${tonGrp.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})} ton</div>
+          <div style="font-size:11px;color:${pgtoColor};font-weight:600">${pgtoLabel}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px">
+          <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--green)">${fmt(totalGrp)}</div>
+          <span id="fatGrupoIcon-${key}" style="color:var(--muted);font-size:14px">▼</span>
+        </div>
+      </div>
+      <div id="fatGrupo-${key}" style="border-top:1px solid var(--border)">
+        <table style="width:100%;border-collapse:collapse">
+          <thead style="background:var(--paper2)">
+            <tr>
+              <th style="padding:8px 20px;text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Data</th>
+              <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Toneladas</th>
+              <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">R$/ton</th>
+              <th style="padding:8px 20px;text-align:right;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Valor</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${viagens.map(f => `<tr style="border-top:1px solid var(--border)">
+              <td style="padding:8px 20px;font-size:12px">${f.data.split('-').reverse().join('/')}</td>
+              <td style="padding:8px 12px;text-align:right;font-size:12px">${f.ton.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+              <td style="padding:8px 12px;text-align:right;font-size:12px">${fmt(f.preco)}</td>
+              <td style="padding:8px 20px;text-align:right;font-size:12px;font-weight:600;color:var(--green)">${fmt(f.total)}</td>
+            </tr>`).join('')}
+          </tbody>
+          <tfoot style="border-top:2px solid var(--border);background:var(--green-lt)">
+            <tr>
+              <td style="padding:10px 20px;font-family:var(--font-head);font-size:12px;font-weight:700">TOTAL</td>
+              <td style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700">${tonGrp.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})} ton</td>
+              <td></td>
+              <td style="padding:10px 20px;text-align:right;font-family:var(--font-head);font-size:14px;font-weight:700;color:var(--green)">${fmt(totalGrp)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleFatGrupo(key) {
+  const el   = document.getElementById('fatGrupo-' + key);
+  const icon = document.getElementById('fatGrupoIcon-' + key);
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : '';
+  icon.textContent = open ? '▶' : '▼';
+}
+
+function renderFaturamentoViagem(dados) {
   const tbody = document.getElementById('tbodyFaturamento');
   const tfoot = document.getElementById('tfootFaturamento');
 
-  if (dados.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">Nenhum lançamento encontrado para os filtros selecionados.</td></tr>`;
+  // Ordenar
+  const sorted = [...dados].sort((a,b) => {
+    let va = a[fatSortCol], vb = b[fatSortCol];
+    if (fatSortCol === 'ton' || fatSortCol === 'preco' || fatSortCol === 'total') { va = va||0; vb = vb||0; }
+    if (va < vb) return fatSortAsc ? -1 : 1;
+    if (va > vb) return fatSortAsc ?  1 : -1;
+    return 0;
+  });
+
+  if (sorted.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">Nenhuma viagem encontrada.</td></tr>`;
     tfoot.innerHTML = '';
     return;
   }
 
-  tbody.innerHTML = dados.map(l => {
-    const dataFmt = l.data.split('-').reverse().join('/');
-    const tonFmt  = l.ton  ? l.ton.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
-    const precoFmt= l.preco ? fmt(l.preco) : '—';
+  const hoje = new Date().toISOString().slice(0,10);
+  tbody.innerHTML = sorted.map(f => {
+    const dataPgto = calcDataPagamento(f.data);
+    const pgtoFmt  = dataPgto.split('-').reverse().join('/');
+    const q        = getQuinzena(f.data);
+    const pago     = dataPgto < hoje;
     return `<tr>
-      <td style="white-space:nowrap">${dataFmt}</td>
-      <td>${l.descricao}</td>
-      <td class="r">${tonFmt}</td>
-      <td class="r">${precoFmt}</td>
-      <td class="r pos" style="font-weight:600">${fmt(l.valor)}</td>
+      <td style="white-space:nowrap">${f.data.split('-').reverse().join('/')}</td>
+      <td style="font-size:11px;color:var(--muted)">${q === 1 ? '1ª Quinzena' : '2ª Quinzena'}</td>
+      <td class="r">${f.ton.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td class="r">${fmt(f.preco)}</td>
+      <td class="r pos" style="font-weight:600">${fmt(f.total)}</td>
+      <td style="font-size:11px;color:${pago?'var(--green)':'var(--accent)'};white-space:nowrap">${pago?'✓ ':''} ${pgtoFmt}</td>
     </tr>`;
   }).join('');
 
+  const totalValor = sorted.reduce((s,f) => s + f.total, 0);
+  const totalTon   = sorted.reduce((s,f) => s + f.ton,   0);
   tfoot.innerHTML = `<tr style="font-weight:700;border-top:2px solid var(--border)">
-    <td colspan="2" style="font-family:var(--font-head)">TOTAL — ${nViagens} viagem${nViagens!==1?'s':''}</td>
-    <td class="r">${totalTon.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' ton'}</td>
-    <td class="r" style="font-size:11px;color:var(--muted)">${mediaPreco ? 'méd. '+fmt(mediaPreco) : ''}</td>
+    <td colspan="2" style="font-family:var(--font-head)">${sorted.length} viagem${sorted.length!==1?'s':''}</td>
+    <td class="r">${totalTon.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})} ton</td>
+    <td></td>
     <td class="r pos" style="font-size:15px">${fmt(totalValor)}</td>
+    <td></td>
   </tr>`;
 }
 
@@ -3089,25 +3213,22 @@ async function importarFaturamentoHistorico() {
   const status = document.getElementById('importFatStatus');
   btn.disabled = true; btn.textContent = 'Importando…';
 
-  // Remover receitas existentes geradas por esta importação (se reimportando)
-  lancamentos = lancamentos.filter(l => !l._fatHistorico);
+  // Migração: remover entradas _fatHistorico antigas de lancamentos (versão anterior)
+  const hadOldEntries = lancamentos.some(l => l._fatHistorico);
+  if (hadOldEntries) {
+    lancamentos = lancamentos.filter(l => !l._fatHistorico);
+  }
 
-  // Criar novos lançamentos
-  let total = 0;
+  // Adicionar ao array faturamentos (evita duplicatas por data)
+  const datasExistentes = new Set(faturamentos.map(f => f.data));
+  let adicionados = 0;
   FATURAMENTO_HISTORICO.forEach(f => {
-    lancamentos.push({
-      id: nextId++,
-      tipo: 'receita',
-      categoria: 'receita',
-      descricao: `Frete — ${f.ton.toFixed(2)} ton × R$ ${f.preco.toFixed(2)}/ton`,
-      valor: f.total,
-      data: f.data,
-      quemPagou: 'LORS',
-      obs: `${f.ton} ton · R$ ${f.preco}/ton`,
-      _fatHistorico: true
-    });
-    total += f.total;
+    if (!datasExistentes.has(f.data)) {
+      faturamentos.push({ id: nextId++, data: f.data, ton: f.ton, preco: f.preco, total: f.total });
+      adicionados++;
+    }
   });
+  faturamentos.sort((a,b) => a.data.localeCompare(b.data));
 
   saveData();
 
@@ -3117,13 +3238,18 @@ async function importarFaturamentoHistorico() {
     { merge: true }
   );
 
-  renderLancamentos();
-  updateKPIs();
+  // Se havia lançamentos antigos, atualizar as abas de lançamentos/KPIs
+  if (hadOldEntries) {
+    renderLancamentos();
+    updateKPIs();
+  }
 
+  const totalImp = FATURAMENTO_HISTORICO.reduce((s,f) => s + f.total, 0);
   const fmt2 = v => 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2,maximumFractionDigits:2});
-  status.textContent = `✓ ${FATURAMENTO_HISTORICO.length} viagens importadas · total ${fmt2(total)}`;
+  status.textContent = `✓ ${adicionados} viagens importadas · total ${fmt2(totalImp)}`;
   btn.textContent = '✓ Importado';
-  showToast(`${FATURAMENTO_HISTORICO.length} lançamentos de faturamento importados!`, 'success');
+  showToast(`${adicionados} viagens de faturamento importadas!`, 'success');
+  renderFaturamento();
 }
 
 // ═══════════════════════════════════════════════════════════════
