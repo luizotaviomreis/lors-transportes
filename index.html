@@ -874,9 +874,46 @@ textarea { resize: vertical; min-height: 60px; }
       </div>
 
       <!-- Bloqueados -->
-      <div>
+      <div style="margin-bottom:36px">
         <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;color:var(--muted);margin-bottom:10px">✕ Bloqueados</div>
         <div id="adminBlockedList" style="display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+
+      <!-- ── Backups ── -->
+      <div style="border-top:2px solid var(--border);padding-top:28px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px">
+          <div>
+            <div style="font-family:var(--font-head);font-size:14px;font-weight:700">Backups</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px" id="backupAutoInfo"></div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;color:var(--ink)">
+              <input type="checkbox" id="backupAutoToggle" onchange="toggleBackupAuto(this.checked)"> Automático a cada 5 dias
+            </label>
+            <button class="btn btn-primary btn-sm" onclick="salvarBackup('manual')">⬇ Backup agora</button>
+          </div>
+        </div>
+
+        <!-- Config Drive -->
+        <div style="background:var(--blue-lt);border:1px solid #c5d5f5;border-radius:var(--r);padding:14px 18px;margin-bottom:16px">
+          <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:8px">☁ Google Drive — pasta de backups</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="url" id="backupDriveUrl" placeholder="URL do Apps Script para Drive (opcional)" style="flex:1;min-width:220px;padding:7px 12px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--font-mono);font-size:11px">
+            <button class="btn btn-sm" onclick="salvarConfigBackupDrive()">Salvar URL</button>
+            <button class="btn btn-sm" onclick="mostrarScriptBackup()">Ver script</button>
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-top:6px">Cole aqui a URL do Apps Script configurado na sua conta Google para salvar backups na pasta do Drive.</div>
+        </div>
+
+        <!-- Script de exemplo -->
+        <div id="scriptBackupBox" style="display:none;margin-bottom:16px">
+          <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:6px">Cole este código no Apps Script (Extensions → Apps Script no Google Sheets):</div>
+          <pre id="scriptBackupCode" style="background:var(--ink);color:#a8e6cf;font-size:10px;padding:14px;border-radius:var(--r);overflow-x:auto;line-height:1.6;white-space:pre-wrap"></pre>
+          <button class="btn btn-sm" onclick="copiarScriptBackup()" style="margin-top:8px">Copiar script</button>
+        </div>
+
+        <!-- Lista de backups -->
+        <div id="backupList" style="display:flex;flex-direction:column;gap:6px"></div>
       </div>
     </div>
 
@@ -1943,7 +1980,7 @@ function showPage(page) {
   if(page==='graficos') setTimeout(renderCharts, 50);
   if(page==='socios')   renderSocios();
   if(page==='orcamento') calcOrcamento();
-  if(page==='admin')    renderAdmin();
+  if(page==='admin')    { renderAdmin(); renderBackups(); }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2546,6 +2583,9 @@ async function initApp() {
   } else {
     setSyncStatus('disconnected');
   }
+
+  // Auto-backup (verificar após 3s para não travar o carregamento)
+  setTimeout(verificarAutoBackup, 3000);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2797,6 +2837,181 @@ function excluirPagSocio(id) {
   renderLancamentos();
   updateKPIs();
   showToast('Pagamento e lançamento vinculado excluídos');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BACKUPS
+// ═══════════════════════════════════════════════════════════════
+const BACKUP_AUTO_KEY   = 'lors_backup_auto';
+const BACKUP_LAST_KEY   = 'lors_backup_last';
+const BACKUP_DRIVE_KEY  = 'lors_backup_drive_url';
+const BACKUP_MAX        = 30; // máximo de backups no Firestore
+
+const APPS_SCRIPT_BACKUP = `// ── LORS Transportes — Backup automático no Drive ──
+// Cole este código no Apps Script de uma planilha Google
+// Implante como Web App: acesso "Qualquer pessoa"
+
+function doPost(e) {
+  try {
+    const payload = JSON.parse(e.postData.contents);
+    const folderName = 'LORS Backups';
+    const root = DriveApp.getRootFolder();
+    let folder;
+    const folders = root.getFoldersByName(folderName);
+    folder = folders.hasNext() ? folders.next() : root.createFolder(folderName);
+    const filename = 'lors_backup_' + payload.savedAt.replace(/[:.]/g,'-') + '.json';
+    folder.createFile(filename, JSON.stringify(payload, null, 2), MimeType.PLAIN_TEXT);
+    return ContentService.createTextOutput(JSON.stringify({ ok: true, file: filename }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, error: err.message }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}`;
+
+async function salvarBackup(tipo = 'manual') {
+  if (!currentUser) return;
+  const payload = {
+    lancamentos, recorrentes, nextId, pagamentosSocios,
+    savedAt: new Date().toISOString(),
+    savedBy: currentUser.email,
+    tipo
+  };
+  try {
+    // 1. Salvar no Firestore
+    await db.collection('backups').add({
+      ...payload,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    // 2. Limpar backups antigos (manter só os últimos BACKUP_MAX)
+    const all = await db.collection('backups').orderBy('timestamp', 'asc').get();
+    if (all.size > BACKUP_MAX) {
+      const excesso = all.docs.slice(0, all.size - BACKUP_MAX);
+      const batch = db.batch();
+      excesso.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+    }
+
+    // 3. Enviar para Google Drive (se configurado)
+    const driveUrl = localStorage.getItem(BACKUP_DRIVE_KEY);
+    if (driveUrl) {
+      fetch(driveUrl, { method:'POST', body: JSON.stringify(payload) }).catch(() => {});
+    }
+
+    // 4. Atualizar timestamp do último backup
+    localStorage.setItem(BACKUP_LAST_KEY, new Date().toISOString());
+
+    if (tipo === 'manual') {
+      showToast('Backup salvo com sucesso!', 'success');
+      renderBackups();
+    }
+  } catch(e) {
+    console.warn('Erro ao salvar backup:', e);
+    if (tipo === 'manual') showToast('Erro ao salvar backup.', 'error');
+  }
+}
+
+async function renderBackups() {
+  const autoOn   = localStorage.getItem(BACKUP_AUTO_KEY) === '1';
+  const lastDate = localStorage.getItem(BACKUP_LAST_KEY);
+  const toggle   = document.getElementById('backupAutoToggle');
+  const infoEl   = document.getElementById('backupAutoInfo');
+  const listEl   = document.getElementById('backupList');
+  const urlEl    = document.getElementById('backupDriveUrl');
+  if (!toggle || !listEl) return;
+
+  toggle.checked = autoOn;
+  infoEl.textContent = lastDate
+    ? `Último backup: ${new Date(lastDate).toLocaleString('pt-BR')}`
+    : 'Nenhum backup realizado ainda.';
+  if (urlEl) urlEl.value = localStorage.getItem(BACKUP_DRIVE_KEY) || '';
+
+  listEl.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px">Carregando backups…</div>';
+
+  try {
+    const snap = await db.collection('backups').orderBy('timestamp','desc').limit(30).get();
+    if (snap.empty) {
+      listEl.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px">Nenhum backup encontrado.</div>';
+      return;
+    }
+    listEl.innerHTML = snap.docs.map(doc => {
+      const d = doc.data();
+      const dt = d.timestamp ? new Date(d.timestamp.toDate()).toLocaleString('pt-BR') : d.savedAt?.slice(0,16).replace('T',' ') || '—';
+      const tipoBadge = d.tipo === 'auto'
+        ? `<span style="background:var(--blue-lt);color:var(--accent);padding:2px 7px;border-radius:10px;font-size:10px">Auto</span>`
+        : `<span style="background:var(--yellow-lt);color:var(--yellow);padding:2px 7px;border-radius:10px;font-size:10px">Manual</span>`;
+      const nLanc = (d.lancamentos||[]).length;
+      return `<div style="background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600">${dt} ${tipoBadge}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">${nLanc} lançamentos · por ${d.savedBy||'—'}</div>
+        </div>
+        <button class="btn btn-sm" onclick="downloadBackupById('${doc.id}')">⬇ Baixar</button>
+        <button class="btn btn-danger btn-sm" onclick="deletarBackup('${doc.id}')" title="Excluir backup">✕</button>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    listEl.innerHTML = '<div style="color:var(--red);font-size:12px;padding:8px">Erro ao carregar backups.</div>';
+  }
+}
+
+async function downloadBackupById(id) {
+  const snap = await db.collection('backups').doc(id).get();
+  if (!snap.exists) return;
+  const d = snap.data();
+  const dt = d.savedAt?.slice(0,10) || new Date().toISOString().slice(0,10);
+  const blob = new Blob([JSON.stringify(d, null, 2)], { type:'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `lors_backup_${dt}_${d.tipo||'manual'}.json`;
+  a.click();
+  showToast('Backup baixado!', 'success');
+}
+
+async function deletarBackup(id) {
+  if (!confirm('Excluir este backup permanentemente?')) return;
+  await db.collection('backups').doc(id).delete();
+  renderBackups();
+  showToast('Backup excluído.', 'error');
+}
+
+function toggleBackupAuto(ativo) {
+  localStorage.setItem(BACKUP_AUTO_KEY, ativo ? '1' : '0');
+  showToast(ativo ? 'Backup automático ativado (a cada 5 dias).' : 'Backup automático desativado.', 'success');
+}
+
+function salvarConfigBackupDrive() {
+  const url = document.getElementById('backupDriveUrl').value.trim();
+  localStorage.setItem(BACKUP_DRIVE_KEY, url);
+  showToast(url ? 'URL do Drive salva!' : 'URL removida.', 'success');
+}
+
+function mostrarScriptBackup() {
+  const box = document.getElementById('scriptBackupBox');
+  const pre = document.getElementById('scriptBackupCode');
+  if (box.style.display === 'none') {
+    pre.textContent = APPS_SCRIPT_BACKUP;
+    box.style.display = '';
+  } else {
+    box.style.display = 'none';
+  }
+}
+
+function copiarScriptBackup() {
+  navigator.clipboard.writeText(APPS_SCRIPT_BACKUP)
+    .then(() => showToast('Script copiado!', 'success'))
+    .catch(() => showToast('Copie manualmente o conteúdo acima.', 'error'));
+}
+
+// Verificar auto-backup na inicialização
+function verificarAutoBackup() {
+  if (!currentUser) return;
+  if (localStorage.getItem(BACKUP_AUTO_KEY) !== '1') return;
+  const last = localStorage.getItem(BACKUP_LAST_KEY);
+  if (!last) { salvarBackup('auto'); return; }
+  const diasPassados = (Date.now() - new Date(last).getTime()) / (1000 * 60 * 60 * 24);
+  if (diasPassados >= 5) salvarBackup('auto');
 }
 
 // ── PWA Service Worker ──
