@@ -2896,7 +2896,12 @@ async function salvarBackup(tipo = 'manual') {
     // 3. Enviar para Google Drive (se configurado)
     const driveUrl = localStorage.getItem(BACKUP_DRIVE_KEY);
     if (driveUrl) {
-      fetch(driveUrl, { method:'POST', body: JSON.stringify(payload) }).catch(() => {});
+      fetch(driveUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(payload)
+      }).catch(() => {});
     }
 
     // 4. Atualizar timestamp do último backup
