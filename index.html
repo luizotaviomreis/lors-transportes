@@ -879,6 +879,17 @@ textarea { resize: vertical; min-height: 60px; }
         <div id="adminBlockedList" style="display:flex;flex-direction:column;gap:8px"></div>
       </div>
 
+      <!-- ── Importar Faturamento Histórico ── -->
+      <div style="border-top:2px solid var(--border);padding-top:28px;margin-bottom:28px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:10px">
+          <div>
+            <div style="font-family:var(--font-head);font-size:14px;font-weight:700">Importar Faturamento Histórico</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px" id="importFatStatus">52 viagens · fev–abr 2026 · R$ 140–170/ton</div>
+          </div>
+          <button class="btn btn-primary btn-sm" id="btnImportFat" onclick="importarFaturamentoHistorico()">⬆ Importar agora</button>
+        </div>
+      </div>
+
       <!-- ── Backups ── -->
       <div style="border-top:2px solid var(--border);padding-top:28px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px">
@@ -2837,6 +2848,114 @@ function excluirPagSocio(id) {
   renderLancamentos();
   updateKPIs();
   showToast('Pagamento e lançamento vinculado excluídos');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// IMPORTAÇÃO DE FATURAMENTO HISTÓRICO
+// ═══════════════════════════════════════════════════════════════
+const FATURAMENTO_HISTORICO = [
+  {data:'2026-02-14',ton:55.46,preco:140,total:7764.40},
+  {data:'2026-02-16',ton:54.30,preco:140,total:7602.00},
+  {data:'2026-02-17',ton:55.28,preco:140,total:7739.20},
+  {data:'2026-02-18',ton:54.18,preco:140,total:7585.20},
+  {data:'2026-02-19',ton:54.68,preco:140,total:7655.20},
+  {data:'2026-02-20',ton:54.60,preco:140,total:7644.00},
+  {data:'2026-02-23',ton:54.84,preco:140,total:7677.60},
+  {data:'2026-02-24',ton:54.62,preco:140,total:7646.80},
+  {data:'2026-02-25',ton:54.98,preco:140,total:7697.20},
+  {data:'2026-02-26',ton:54.54,preco:140,total:7635.60},
+  {data:'2026-02-27',ton:55.02,preco:140,total:7702.80},
+  {data:'2026-03-02',ton:55.18,preco:140,total:7725.20},
+  {data:'2026-03-03',ton:54.56,preco:140,total:7638.40},
+  {data:'2026-03-04',ton:55.24,preco:140,total:7733.60},
+  {data:'2026-03-05',ton:54.54,preco:140,total:7635.60},
+  {data:'2026-03-06',ton:54.56,preco:140,total:7638.40},
+  {data:'2026-03-07',ton:54.54,preco:140,total:7635.60},
+  {data:'2026-03-09',ton:53.82,preco:140,total:7534.80},
+  {data:'2026-03-10',ton:55.44,preco:140,total:7761.60},
+  {data:'2026-03-11',ton:54.12,preco:140,total:7576.80},
+  {data:'2026-03-15',ton:53.74,preco:150,total:8061.00},
+  {data:'2026-03-16',ton:55.10,preco:150,total:8265.00},
+  {data:'2026-03-17',ton:53.48,preco:150,total:8022.00},
+  {data:'2026-03-18',ton:54.70,preco:150,total:8205.00},
+  {data:'2026-03-19',ton:54.70,preco:150,total:8205.00},
+  {data:'2026-03-20',ton:53.66,preco:150,total:8049.00},
+  {data:'2026-03-21',ton:54.50,preco:150,total:8175.00},
+  {data:'2026-03-23',ton:54.24,preco:150,total:8136.00},
+  {data:'2026-03-24',ton:54.06,preco:150,total:8109.00},
+  {data:'2026-03-25',ton:53.82,preco:150,total:8073.00},
+  {data:'2026-03-26',ton:54.52,preco:150,total:8178.00},
+  {data:'2026-03-27',ton:54.92,preco:150,total:8238.00},
+  {data:'2026-03-28',ton:53.40,preco:150,total:8010.00},
+  {data:'2026-03-30',ton:55.18,preco:150,total:8277.00},
+  {data:'2026-03-31',ton:48.92,preco:150,total:7338.00},
+  {data:'2026-04-01',ton:52.52,preco:150,total:7878.00},
+  {data:'2026-04-02',ton:52.86,preco:170,total:8986.20},
+  {data:'2026-04-08',ton:55.32,preco:170,total:9404.40},
+  {data:'2026-04-09',ton:53.52,preco:170,total:9098.40},
+  {data:'2026-04-10',ton:54.84,preco:170,total:9322.80},
+  {data:'2026-04-11',ton:53.08,preco:170,total:9023.60},
+  {data:'2026-04-13',ton:53.88,preco:170,total:9159.60},
+  {data:'2026-04-14',ton:54.38,preco:170,total:9244.60},
+  {data:'2026-04-18',ton:52.58,preco:170,total:8938.60},
+  {data:'2026-04-20',ton:54.74,preco:170,total:9305.80},
+  {data:'2026-04-21',ton:53.98,preco:170,total:9176.60},
+  {data:'2026-04-22',ton:54.98,preco:170,total:9346.60},
+  {data:'2026-04-23',ton:54.70,preco:170,total:9299.00},
+  {data:'2026-04-24',ton:51.58,preco:170,total:8768.60},
+  {data:'2026-04-25',ton:54.52,preco:170,total:9268.40},
+  {data:'2026-04-27',ton:54.12,preco:170,total:9200.40},
+  {data:'2026-04-28',ton:51.80,preco:170,total:8806.00},
+];
+
+async function importarFaturamentoHistorico() {
+  if (!currentUser || currentUser.email !== ADMIN_EMAIL) return;
+
+  // Verificar se já foi importado
+  const configSnap = await db.collection('appdata').doc('config').get();
+  if (configSnap.exists && configSnap.data().faturamentoHistoricoImportado) {
+    if (!confirm('Este faturamento já foi importado anteriormente.\nDeseja importar novamente? (cria duplicatas)')) return;
+  }
+
+  const btn = document.getElementById('btnImportFat');
+  const status = document.getElementById('importFatStatus');
+  btn.disabled = true; btn.textContent = 'Importando…';
+
+  // Remover receitas existentes geradas por esta importação (se reimportando)
+  lancamentos = lancamentos.filter(l => !l._fatHistorico);
+
+  // Criar novos lançamentos
+  let total = 0;
+  FATURAMENTO_HISTORICO.forEach(f => {
+    lancamentos.push({
+      id: nextId++,
+      tipo: 'receita',
+      categoria: 'receita',
+      descricao: `Frete — ${f.ton.toFixed(2)} ton × R$ ${f.preco.toFixed(2)}/ton`,
+      valor: f.total,
+      data: f.data,
+      quemPagou: 'LORS',
+      obs: `${f.ton} ton · R$ ${f.preco}/ton`,
+      _fatHistorico: true
+    });
+    total += f.total;
+  });
+
+  saveData();
+
+  // Marcar como importado no Firestore
+  await db.collection('appdata').doc('config').set(
+    { faturamentoHistoricoImportado: true, faturamentoImportadoEm: new Date().toISOString() },
+    { merge: true }
+  );
+
+  renderLancamentos();
+  updateKPIs();
+
+  const fmt2 = v => 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2,maximumFractionDigits:2});
+  status.textContent = `✓ ${FATURAMENTO_HISTORICO.length} viagens importadas · total ${fmt2(total)}`;
+  btn.textContent = '✓ Importado';
+  showToast(`${FATURAMENTO_HISTORICO.length} lançamentos de faturamento importados!`, 'success');
 }
 
 // ═══════════════════════════════════════════════════════════════
