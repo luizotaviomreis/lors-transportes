@@ -390,8 +390,8 @@ textarea { resize: vertical; min-height: 60px; }
   background: #1a1a2e;
   border: 1px solid rgba(255,255,255,.1);
   border-radius: 12px;
-  padding: 44px 40px 36px;
-  width: 340px;
+  padding: 40px 40px 32px;
+  width: 360px;
   display: flex; flex-direction: column; align-items: center; gap: 0;
   box-shadow: 0 24px 60px rgba(0,0,0,.6);
 }
@@ -402,26 +402,26 @@ textarea { resize: vertical; min-height: 60px; }
 }
 .login-tagline {
   font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
-  color: rgba(255,255,255,.35); margin-top: 4px; margin-bottom: 32px;
+  color: rgba(255,255,255,.35); margin-top: 4px; margin-bottom: 28px;
 }
 .login-label {
   font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
-  color: rgba(255,255,255,.4); align-self: flex-start; margin-bottom: 6px;
+  color: rgba(255,255,255,.4); align-self: flex-start; margin-bottom: 6px; margin-top: 14px;
 }
 .login-input {
   width: 100%;
-  padding: 12px 16px;
+  padding: 11px 14px;
   border-radius: 8px;
   border: 1.5px solid rgba(255,255,255,.12);
   background: rgba(255,255,255,.05);
   color: #fff;
   font-family: var(--font-mono);
-  font-size: 20px; letter-spacing: .3em; text-align: center;
+  font-size: 13px; letter-spacing: .03em; text-align: left;
   outline: none; transition: border-color .15s;
 }
 .login-input:focus { border-color: var(--yellow); }
 .login-btn {
-  margin-top: 20px; width: 100%;
+  margin-top: 22px; width: 100%;
   padding: 12px;
   background: var(--accent); border: none;
   border-radius: 8px; color: #fff;
@@ -429,11 +429,15 @@ textarea { resize: vertical; min-height: 60px; }
   letter-spacing: .06em; cursor: pointer; transition: background .15s;
 }
 .login-btn:hover { background: #223d75; }
+.login-btn:disabled { opacity: .6; cursor: not-allowed; }
 .login-error {
-  margin-top: 12px; font-size: 11px; color: var(--accent2);
-  min-height: 16px; text-align: center;
+  margin-top: 12px; font-size: 11px; color: #e57373;
+  min-height: 16px; text-align: center; width: 100%;
 }
-.login-hint { margin-top: 24px; font-size: 10px; color: rgba(255,255,255,.18); text-align: center; }
+.login-hint { margin-top: 20px; font-size: 10px; color: rgba(255,255,255,.18); text-align: center; }
+.login-switch { margin-top: 18px; font-size: 11px; color: rgba(255,255,255,.35); text-align: center; }
+.login-switch a { color: var(--yellow); cursor: pointer; text-decoration: underline; }
+.login-success { margin-top: 12px; font-size: 11px; color: #81c784; min-height: 16px; text-align: center; width: 100%; }
 
 /* ── Google Drive Sync ── */
 .sync-footer {
@@ -501,13 +505,36 @@ textarea { resize: vertical; min-height: 60px; }
 <!-- ── Login ── -->
 <div class="login-overlay" id="loginOverlay">
   <div class="login-box">
-    <div class="login-logo"><img src="/logo.png" alt="LORS Transportes" style="width:180px;filter:invert(1)"></div>
+    <div class="login-logo"><img src="logo.png" alt="LORS Transportes" style="width:180px;filter:invert(1)"></div>
     <div class="login-tagline">Gestão Financeira</div>
-    <button class="login-btn" id="btnGoogleLogin" onclick="loginGoogle()" style="display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#333;border:1px solid #ddd;margin-top:8px">
-      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-3.58-13.47-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
-      Entrar com Google
-    </button>
-    <div class="login-error" id="loginError"></div>
+
+    <!-- Painel Login -->
+    <div id="panelLogin" style="width:100%">
+      <div class="login-label">E-mail</div>
+      <input class="login-input" type="email" id="loginEmail" placeholder="seu@email.com" autocomplete="email">
+      <div class="login-label">Senha</div>
+      <input class="login-input" type="password" id="loginSenha" placeholder="••••••••" autocomplete="current-password">
+      <button class="login-btn" id="btnEntrar" onclick="loginEmail()">Entrar</button>
+      <div class="login-error" id="loginError"></div>
+      <div class="login-switch">Não tem conta? <a onclick="mostrarCadastro()">Solicitar acesso</a></div>
+    </div>
+
+    <!-- Painel Cadastro -->
+    <div id="panelCadastro" style="width:100%;display:none">
+      <div class="login-label">Nome completo</div>
+      <input class="login-input" type="text" id="cadNome" placeholder="Seu nome">
+      <div class="login-label">E-mail</div>
+      <input class="login-input" type="email" id="cadEmail" placeholder="seu@email.com" autocomplete="email">
+      <div class="login-label">Senha <span style="font-size:9px;opacity:.5">(mín. 6 caracteres)</span></div>
+      <input class="login-input" type="password" id="cadSenha" placeholder="••••••••" autocomplete="new-password">
+      <div class="login-label">Confirmar senha</div>
+      <input class="login-input" type="password" id="cadSenhaConf" placeholder="••••••••" autocomplete="new-password">
+      <button class="login-btn" id="btnCadastrar" onclick="cadastrarUsuario()">Solicitar acesso</button>
+      <div class="login-error" id="cadError"></div>
+      <div class="login-success" id="cadSuccess"></div>
+      <div class="login-switch">Já tem conta? <a onclick="mostrarLogin()">Entrar</a></div>
+    </div>
+
     <div class="login-hint">Acesso exclusivo LORS Transportes</div>
   </div>
 </div>
@@ -515,25 +542,25 @@ textarea { resize: vertical; min-height: 60px; }
 <!-- ── Aguardando aprovação ── -->
 <div class="login-overlay" id="pendingOverlay" style="display:none">
   <div class="login-box">
-    <div class="login-logo"><img src="/logo.png" alt="LORS Transportes" style="width:180px;filter:invert(1)"></div>
+    <div class="login-logo"><img src="logo.png" alt="LORS Transportes" style="width:180px;filter:invert(1)"></div>
     <div class="login-tagline">Acesso Pendente</div>
-    <div style="text-align:center;color:rgba(255,255,255,.6);font-size:13px;margin:16px 0;line-height:1.6">
+    <div style="text-align:center;color:rgba(255,255,255,.6);font-size:13px;margin:16px 0;line-height:1.7">
       Sua solicitação foi enviada ao administrador.<br>Aguarde a aprovação para acessar o sistema.
     </div>
     <div id="pendingUserInfo" style="background:rgba(255,255,255,.08);border-radius:8px;padding:12px;text-align:center;margin-bottom:16px;font-size:12px;color:rgba(255,255,255,.5)"></div>
-    <button class="login-btn" onclick="auth.signOut()" style="background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.6);font-size:12px;padding:10px">Sair da conta</button>
+    <button class="login-btn" onclick="auth.signOut()" style="background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.6);font-size:12px;padding:10px;margin-top:0">Sair da conta</button>
   </div>
 </div>
 
 <!-- ── Acesso bloqueado ── -->
 <div class="login-overlay" id="blockedOverlay" style="display:none">
   <div class="login-box">
-    <div class="login-logo"><img src="/logo.png" alt="LORS Transportes" style="width:180px;filter:invert(1)"></div>
+    <div class="login-logo"><img src="logo.png" alt="LORS Transportes" style="width:180px;filter:invert(1)"></div>
     <div class="login-tagline" style="color:#e57373">Acesso Bloqueado</div>
     <div style="text-align:center;color:rgba(255,255,255,.6);font-size:13px;margin:16px 0">
       Seu acesso foi revogado pelo administrador.<br>Entre em contato caso acredite ser um engano.
     </div>
-    <button class="login-btn" onclick="auth.signOut()" style="background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.6);font-size:12px;padding:10px">Sair</button>
+    <button class="login-btn" onclick="auth.signOut()" style="background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.6);font-size:12px;padding:10px;margin-top:0">Sair</button>
   </div>
 </div>
 
@@ -1087,16 +1114,73 @@ const auth = firebase.auth();
 const db   = firebase.firestore();
 let currentUser = null;   // { uid, email, name, photoURL, role, status, permissions }
 
-function loginGoogle() {
+function mostrarLogin() {
+  document.getElementById('panelLogin').style.display = '';
+  document.getElementById('panelCadastro').style.display = 'none';
   document.getElementById('loginError').textContent = '';
-  const provider = new firebase.auth.GoogleAuthProvider();
-  auth.signInWithPopup(provider).catch(err => {
-    document.getElementById('loginError').textContent = 'Erro ao entrar: ' + err.message;
-  });
+}
+function mostrarCadastro() {
+  document.getElementById('panelLogin').style.display = 'none';
+  document.getElementById('panelCadastro').style.display = '';
+  document.getElementById('cadError').textContent = '';
+  document.getElementById('cadSuccess').textContent = '';
+}
+
+function loginEmail() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const senha = document.getElementById('loginSenha').value;
+  const errEl = document.getElementById('loginError');
+  const btn   = document.getElementById('btnEntrar');
+  errEl.textContent = '';
+  if (!email || !senha) { errEl.textContent = 'Preencha e-mail e senha.'; return; }
+  btn.disabled = true; btn.textContent = 'Entrando…';
+  auth.signInWithEmailAndPassword(email, senha)
+    .catch(err => {
+      const msgs = { 'auth/user-not-found':'E-mail não cadastrado.', 'auth/wrong-password':'Senha incorreta.', 'auth/invalid-credential':'E-mail ou senha incorretos.', 'auth/too-many-requests':'Muitas tentativas. Tente mais tarde.' };
+      errEl.textContent = msgs[err.code] || 'Erro: ' + err.message;
+      btn.disabled = false; btn.textContent = 'Entrar';
+    });
+}
+
+async function cadastrarUsuario() {
+  const nome  = document.getElementById('cadNome').value.trim();
+  const email = document.getElementById('cadEmail').value.trim();
+  const senha = document.getElementById('cadSenha').value;
+  const conf  = document.getElementById('cadSenhaConf').value;
+  const errEl = document.getElementById('cadError');
+  const okEl  = document.getElementById('cadSuccess');
+  const btn   = document.getElementById('btnCadastrar');
+  errEl.textContent = ''; okEl.textContent = '';
+  if (!nome)              { errEl.textContent = 'Informe seu nome.'; return; }
+  if (!email)             { errEl.textContent = 'Informe o e-mail.'; return; }
+  if (senha.length < 6)   { errEl.textContent = 'A senha deve ter ao menos 6 caracteres.'; return; }
+  if (senha !== conf)     { errEl.textContent = 'As senhas não conferem.'; return; }
+  btn.disabled = true; btn.textContent = 'Enviando…';
+  try {
+    const cred = await auth.createUserWithEmailAndPassword(email, senha);
+    await cred.user.updateProfile({ displayName: nome });
+    await db.collection('users').doc(cred.user.uid).set({
+      email, name: nome, photoURL: '',
+      role: 'viewer', status: 'pending',
+      permissions: { lancamentos:true, recorrentes:true, dre:true, fluxo:true, graficos:true, socios:false, orcamento:true },
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    // Desloga imediatamente — acesso só após aprovação
+    await auth.signOut();
+    okEl.textContent = '✓ Solicitação enviada! Aguarde a aprovação do administrador.';
+    btn.disabled = false; btn.textContent = 'Solicitar acesso';
+    document.getElementById('cadNome').value = '';
+    document.getElementById('cadEmail').value = '';
+    document.getElementById('cadSenha').value = '';
+    document.getElementById('cadSenhaConf').value = '';
+  } catch(err) {
+    const msgs = { 'auth/email-already-in-use':'Este e-mail já está cadastrado.', 'auth/invalid-email':'E-mail inválido.' };
+    errEl.textContent = msgs[err.code] || 'Erro: ' + err.message;
+    btn.disabled = false; btn.textContent = 'Solicitar acesso';
+  }
 }
 
 auth.onAuthStateChanged(async user => {
-  // Esconder todas as telas
   ['loginOverlay','pendingOverlay','blockedOverlay'].forEach(id =>
     document.getElementById(id).style.display = 'none');
 
@@ -1106,29 +1190,28 @@ auth.onAuthStateChanged(async user => {
     return;
   }
 
-  // Ler/criar doc do usuário
-  const ref = db.collection('users').doc(user.uid);
-  let snap  = await ref.get();
+  // Ler doc do usuário
+  const ref  = db.collection('users').doc(user.uid);
+  let snap   = await ref.get();
 
-  if (!snap.exists) {
-    const isAdmin = user.email === ADMIN_EMAIL;
+  // Admin: garantir que o doc existe
+  if (!snap.exists && user.email === ADMIN_EMAIL) {
     await ref.set({
-      email:    user.email,
-      name:     user.displayName || user.email,
-      photoURL: user.photoURL || '',
-      role:     isAdmin ? 'admin' : 'viewer',
-      status:   isAdmin ? 'approved' : 'pending',
-      permissions: { lancamentos:true, recorrentes:true, dre:true, fluxo:true, graficos:true, socios:false, orcamento:true },
+      email: user.email, name: user.displayName || user.email, photoURL: '',
+      role: 'admin', status: 'approved',
+      permissions: { lancamentos:true, recorrentes:true, dre:true, fluxo:true, graficos:true, socios:true, orcamento:true },
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     snap = await ref.get();
   }
 
+  if (!snap.exists) { await auth.signOut(); return; }
+
   const ud = snap.data();
-  currentUser = { uid: user.uid, email: user.email, name: user.displayName || user.email, photoURL: user.photoURL || '', ...ud };
+  currentUser = { uid: user.uid, email: user.email, name: ud.name || user.displayName || user.email, photoURL: ud.photoURL || '', ...ud };
 
   if (ud.status === 'pending') {
-    document.getElementById('pendingUserInfo').textContent = user.displayName + ' — ' + user.email;
+    document.getElementById('pendingUserInfo').textContent = (ud.name || user.email) + ' — ' + user.email;
     document.getElementById('pendingOverlay').style.display = 'flex';
     return;
   }
@@ -1137,7 +1220,6 @@ auth.onAuthStateChanged(async user => {
     return;
   }
 
-  // Aprovado — carregar dados e mostrar app
   await loadDataFromFirestore();
   document.getElementById('mainApp').style.display = 'flex';
   applyUserUI();
@@ -1322,7 +1404,17 @@ function loadData() {
   try { const d = localStorage.getItem(STORAGE_KEY); return d ? JSON.parse(d) : null; } catch(e) { return null; }
 }
 
-// Auth agora é via Firebase (Google Sign-In) — checkPin removido
+// Auth via Firebase Email/Senha
+document.addEventListener('DOMContentLoaded', () => {
+  ['loginEmail','loginSenha'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') loginEmail(); });
+  });
+  ['cadNome','cadEmail','cadSenha','cadSenhaConf'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') cadastrarUsuario(); });
+  });
+});
 
 function backupDados() {
   const data = JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, exportedAt: new Date().toISOString() }, null, 2);
