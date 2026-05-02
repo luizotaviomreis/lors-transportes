@@ -822,7 +822,10 @@ textarea { resize: vertical; min-height: 60px; }
       </div>
 
       <!-- Cards de resumo -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px" id="fatCards"></div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:12px" id="fatCards"></div>
+
+      <!-- Info de última sync -->
+      <div id="fatSyncBadge" style="font-size:11px;color:var(--muted);text-align:right;margin-bottom:16px"></div>
 
       <!-- Visão por quinzena -->
       <div id="fatContainerQuinzena"></div>
@@ -946,7 +949,7 @@ textarea { resize: vertical; min-height: 60px; }
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
           <div>
             <div style="font-family:var(--font-head);font-size:14px;font-weight:700">Sincronização de Faturamento — Drive</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px">Lê o Excel do Drive e importa viagens novas automaticamente</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px" id="fatSyncInfo">Nenhuma sincronização realizada ainda.</div>
           </div>
           <button class="btn btn-primary btn-sm" onclick="sincronizarFaturamentoDrive()">⟳ Sincronizar agora</button>
         </div>
@@ -2940,7 +2943,8 @@ function excluirPagSocio(id) {
 // ═══════════════════════════════════════════════════════════════
 // FATURAMENTO — SINCRONIZAÇÃO DO DRIVE
 // ═══════════════════════════════════════════════════════════════
-const FAT_DRIVE_KEY = 'lors_fat_drive_url';
+const FAT_DRIVE_KEY      = 'lors_fat_drive_url';
+const FAT_SYNC_LAST_KEY  = 'lors_fat_sync_last'; // { date, driveCount, appCount }
 
 const APPS_SCRIPT_FAT = `// ── LORS Transportes — Leitura de Faturamento (.xlsx) ──
 //
@@ -3046,6 +3050,18 @@ function _json(obj) {
     .setMimeType(ContentService.MimeType.JSON);
 }`;
 
+function atualizarFatSyncInfo() {
+  const el = document.getElementById('fatSyncInfo');
+  if (!el) return;
+  const raw = localStorage.getItem(FAT_SYNC_LAST_KEY);
+  if (!raw) { el.textContent = 'Nenhuma sincronização realizada ainda.'; return; }
+  try {
+    const s = JSON.parse(raw);
+    const dt = new Date(s.date).toLocaleString('pt-BR');
+    el.innerHTML = `Última sincronização: <strong>${dt}</strong> · ${s.appCount} viagens no app · ${s.driveCount} no Drive`;
+  } catch(e) { el.textContent = 'Nenhuma sincronização realizada ainda.'; }
+}
+
 async function sincronizarFaturamentoDrive(silent = false) {
   if (!currentUser || currentUser.email !== ADMIN_EMAIL) return;
   const url = localStorage.getItem(FAT_DRIVE_KEY);
@@ -3084,13 +3100,18 @@ async function sincronizarFaturamentoDrive(silent = false) {
       }
     });
 
+    // Salvar info de última sincronização
+    const syncMeta = { date: new Date().toISOString(), driveCount: data.count || 0, appCount: faturamentos.length };
+    localStorage.setItem(FAT_SYNC_LAST_KEY, JSON.stringify(syncMeta));
+    atualizarFatSyncInfo();
+
     if (adicionados > 0) {
       faturamentos.sort((a,b) => a.data.localeCompare(b.data));
       saveData();
       renderFaturamento();
-      showToast(`${adicionados} nova${adicionados > 1 ? 's viagens importadas' : ' viagem importada'}!`, 'success');
+      showToast(`${adicionados} nova${adicionados > 1 ? 's viagens importadas' : ' viagem importada'}! Total: ${faturamentos.length} viagens`, 'success');
     } else {
-      if (!silent) showToast(`Faturamento atualizado ✓  (${data.count || 0} viagens no Drive, ${faturamentos.length} no app)`, 'success');
+      if (!silent) showToast(`✓ Já atualizado — ${faturamentos.length} viagens no app`, 'success');
     }
   } catch(err) {
     alert('❌ Falha de conexão com o Drive:\n\n' + err.message + '\n\nVerifique se a URL está correta.');
@@ -3239,6 +3260,21 @@ function renderFaturamento() {
     <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px">${c.label}</div>
     <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:${c.color}">${c.val}</div>
   </div>`).join('');
+
+  // Badge de última sincronização
+  const badge = document.getElementById('fatSyncBadge');
+  if (badge) {
+    const raw = localStorage.getItem(FAT_SYNC_LAST_KEY);
+    if (raw) {
+      try {
+        const s = JSON.parse(raw);
+        const dt = new Date(s.date).toLocaleString('pt-BR');
+        badge.innerHTML = `${faturamentos.length} viagens no app · Drive: ${s.driveCount} · última sync <strong>${dt}</strong>`;
+      } catch(e) { badge.textContent = ''; }
+    } else {
+      badge.textContent = `${faturamentos.length} viagem${faturamentos.length !== 1 ? 's' : ''} no app`;
+    }
+  }
 
   if (fatView === 'quinzena') {
     renderFaturamentoQuinzena(dados);
@@ -3590,9 +3626,10 @@ async function renderBackups() {
     : 'Nenhum backup realizado ainda.';
   if (urlEl) urlEl.value = localStorage.getItem(BACKUP_DRIVE_KEY) || '';
 
-  // Preencher URL do sync de faturamento
+  // Preencher URL e info de sync do faturamento
   const fatUrlEl = document.getElementById('fatDriveUrl');
   if (fatUrlEl) fatUrlEl.value = localStorage.getItem(FAT_DRIVE_KEY) || '';
+  atualizarFatSyncInfo();
 
   listEl.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px">Carregando backups…</div>';
 
