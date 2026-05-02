@@ -4,13 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>LORS Transportes — Gestão Financeira</title>
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#2d4a8a">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="LORS Transportes">
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -807,7 +807,6 @@ textarea { resize: vertical; min-height: 60px; }
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:20px">
         <button id="fatBtnQuinzena" class="btn btn-primary btn-sm" onclick="setFatView('quinzena')">◑ Por Quinzena</button>
         <button id="fatBtnViagem"   class="btn btn-sm"             onclick="setFatView('viagem')">☰ Por Viagem</button>
-        <button id="fatBtnSync" class="btn btn-sm" onclick="sincronizarFaturamentoDrive()" style="display:none" title="Sincronizar com Excel do Drive">⟳ Drive</button>
         <div style="flex:1;min-width:10px"></div>
         <select id="fatFiltroAno" onchange="renderFaturamento()" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--font-mono);font-size:12px;background:#fff">
           <option value="">Todos os anos</option>
@@ -822,10 +821,10 @@ textarea { resize: vertical; min-height: 60px; }
       </div>
 
       <!-- Cards de resumo -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:12px" id="fatCards"></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;margin-bottom:12px" id="fatCards"></div>
 
-      <!-- Info de última sync -->
-      <div id="fatSyncBadge" style="font-size:11px;color:var(--muted);text-align:right;margin-bottom:16px"></div>
+      <!-- Info de última importação -->
+      <div id="fatImportBadge" style="font-size:11px;color:var(--muted);text-align:right;margin-bottom:16px"></div>
 
       <!-- Visão por quinzena -->
       <div id="fatContainerQuinzena"></div>
@@ -933,42 +932,18 @@ textarea { resize: vertical; min-height: 60px; }
         <div id="adminBlockedList" style="display:flex;flex-direction:column;gap:8px"></div>
       </div>
 
-      <!-- ── Importar Faturamento Histórico ── -->
+      <!-- ── Faturamento ── -->
       <div style="border-top:2px solid var(--border);padding-top:28px;margin-bottom:28px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:10px">
           <div>
-            <div style="font-family:var(--font-head);font-size:14px;font-weight:700">Importar Faturamento Histórico</div>
+            <div style="font-family:var(--font-head);font-size:14px;font-weight:700">Faturamento — Viagens</div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px" id="importFatStatus">55 viagens · fev–mai 2026 · R$ 140–170/ton</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:3px" id="fatImportInfo">Nenhuma importação realizada neste dispositivo.</div>
           </div>
           <button class="btn btn-primary btn-sm" id="btnImportFat" onclick="importarFaturamentoHistorico()">⬆ Importar agora</button>
         </div>
-      </div>
-
-      <!-- ── Sincronização de Faturamento do Drive ── -->
-      <div style="border-top:2px solid var(--border);padding-top:28px;margin-bottom:28px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
-          <div>
-            <div style="font-family:var(--font-head);font-size:14px;font-weight:700">Sincronização de Faturamento — Drive</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px" id="fatSyncInfo">Nenhuma sincronização realizada ainda.</div>
-          </div>
-          <button class="btn btn-primary btn-sm" onclick="sincronizarFaturamentoDrive()">⟳ Sincronizar agora</button>
-        </div>
-        <div style="background:var(--blue-lt);border:1px solid #c5d5f5;border-radius:var(--r);padding:14px 18px;margin-bottom:10px">
-          <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:8px">☁ Apps Script — leitura do Excel</div>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <input type="url" id="fatDriveUrl" placeholder="URL do Apps Script de leitura do faturamento" style="flex:1;min-width:220px;padding:7px 12px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--font-mono);font-size:11px">
-            <button class="btn btn-sm" onclick="salvarFatDriveUrl()">Salvar URL</button>
-            <button class="btn btn-sm" onclick="testarFatDriveUrl()">Testar</button>
-            <button class="btn btn-sm" onclick="mostrarScriptFaturamento()">Ver script</button>
-          </div>
-          <div style="font-size:10px;color:var(--muted);margin-top:6px">Lê o <strong>.xlsx</strong> diretamente — sem converter. Requer Drive API ativado no Apps Script. Use "Testar" para verificar.</div>
-        </div>
-        <div id="scriptFatBox" style="display:none;margin-bottom:8px">
-          <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:6px">Cole este código no Apps Script (em qualquer planilha Google → Extensões → Apps Script):</div>
-          <pre id="scriptFatCode" style="background:var(--ink);color:#a8e6cf;font-size:10px;padding:14px;border-radius:var(--r);overflow-x:auto;line-height:1.6;white-space:pre-wrap"></pre>
-          <div style="display:flex;gap:8px;margin-top:8px">
-            <button class="btn btn-sm" onclick="copiarScriptFat()">Copiar script</button>
-          </div>
+        <div style="font-size:11px;color:var(--muted);background:var(--paper2);border-radius:var(--r);padding:10px 14px">
+          ℹ️ Para adicionar novas viagens: atualize o Excel no Drive e solicite atualização do sistema. O botão acima importa todas as viagens sem criar duplicatas.
         </div>
       </div>
 
@@ -1410,11 +1385,9 @@ function applyUserUI() {
   document.getElementById('userName').textContent = u.name;
   document.getElementById('userRole').textContent = u.role === 'admin' ? 'Administrador' : u.role === 'editor' ? 'Editor' : 'Visualizador';
 
-  // Nav admin + botão sync faturamento
+  // Nav admin
   if (u.role === 'admin') {
     document.getElementById('navAdmin').style.display = 'flex';
-    const fatSync = document.getElementById('fatBtnSync');
-    if (fatSync) fatSync.style.display = '';
   }
 
   // Nav permissions (não-admin)
@@ -2944,7 +2917,8 @@ function excluirPagSocio(id) {
 // FATURAMENTO — SINCRONIZAÇÃO DO DRIVE
 // ═══════════════════════════════════════════════════════════════
 const FAT_DRIVE_KEY      = 'lors_fat_drive_url';
-const FAT_SYNC_LAST_KEY  = 'lors_fat_sync_last'; // { date, driveCount, appCount }
+const FAT_SYNC_LAST_KEY  = 'lors_fat_sync_last';   // { date, driveCount, appCount }
+const FAT_IMPORT_LAST_KEY = 'lors_fat_import_last'; // { date, count, total }
 
 const APPS_SCRIPT_FAT = `// ── LORS Transportes — Leitura de Faturamento (.xlsx) ──
 //
@@ -3060,6 +3034,19 @@ function atualizarFatSyncInfo() {
     const dt = new Date(s.date).toLocaleString('pt-BR');
     el.innerHTML = `Última sincronização: <strong>${dt}</strong> · ${s.appCount} viagens no app · ${s.driveCount} no Drive`;
   } catch(e) { el.textContent = 'Nenhuma sincronização realizada ainda.'; }
+}
+
+function atualizarFatImportInfo() {
+  const el = document.getElementById('fatImportInfo');
+  if (!el) return;
+  const raw = localStorage.getItem(FAT_IMPORT_LAST_KEY);
+  if (!raw) { el.textContent = 'Nenhuma importação realizada neste dispositivo.'; return; }
+  try {
+    const s = JSON.parse(raw);
+    const dt = new Date(s.date).toLocaleString('pt-BR');
+    const totalFmt = 'R$ ' + s.total.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+    el.innerHTML = `Última importação: <strong>${dt}</strong> · ${s.count} viagens · ${totalFmt}`;
+  } catch(e) { el.textContent = 'Nenhuma importação realizada neste dispositivo.'; }
 }
 
 async function sincronizarFaturamentoDrive(silent = false) {
@@ -3265,27 +3252,29 @@ function renderFaturamento() {
   const totalTon   = dados.reduce((s,f) => s + f.ton,   0);
   const nViagens   = dados.length;
   const mediaViag  = nViagens ? totalValor / nViagens : 0;
+  const mediaTon   = nViagens ? totalTon   / nViagens : 0;
 
   document.getElementById('fatCards').innerHTML = [
     { label:'Total Faturado',     val: fmt(totalValor),  color:'var(--green)',  bg:'var(--green-lt)' },
     { label:'Nº de Viagens',      val: nViagens,         color:'var(--accent)', bg:'var(--blue-lt)'  },
     { label:'Total Transportado', val: totalTon.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' ton', color:'var(--ink)', bg:'#fff' },
     { label:'Média por Viagem',   val: fmt(mediaViag),   color:'var(--muted)',  bg:'#fff'            },
+    { label:'Média ton/viagem',   val: mediaTon.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' ton', color:'var(--ink)', bg:'#fff' },
   ].map(c => `<div style="background:${c.bg};border:1px solid var(--border);border-radius:var(--r);padding:18px 20px">
     <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px">${c.label}</div>
     <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:${c.color}">${c.val}</div>
   </div>`).join('');
 
-  // Badge de última sincronização
-  const badge = document.getElementById('fatSyncBadge');
+  // Badge de última importação
+  const badge = document.getElementById('fatImportBadge');
   if (badge) {
-    const raw = localStorage.getItem(FAT_SYNC_LAST_KEY);
+    const raw = localStorage.getItem(FAT_IMPORT_LAST_KEY);
     if (raw) {
       try {
         const s = JSON.parse(raw);
         const dt = new Date(s.date).toLocaleString('pt-BR');
-        badge.innerHTML = `${faturamentos.length} viagens no app · Drive: ${s.driveCount} · última sync <strong>${dt}</strong>`;
-      } catch(e) { badge.textContent = ''; }
+        badge.innerHTML = `${faturamentos.length} viagem${faturamentos.length !== 1 ? 's' : ''} no app · última importação <strong>${dt}</strong>`;
+      } catch(e) { badge.textContent = `${faturamentos.length} viagem${faturamentos.length !== 1 ? 's' : ''} no app`; }
     } else {
       badge.textContent = `${faturamentos.length} viagem${faturamentos.length !== 1 ? 's' : ''} no app`;
     }
@@ -3539,6 +3528,12 @@ async function importarFaturamentoHistorico() {
 
   btn.textContent = adicionados > 0 ? `✓ ${adicionados} adicionadas` : '✓ Atualizado';
   btn.disabled = false;
+
+  // Registrar data/hora da última importação
+  const importMeta = { date: new Date().toISOString(), count: faturamentos.length, total: totalImp };
+  localStorage.setItem(FAT_IMPORT_LAST_KEY, JSON.stringify(importMeta));
+  atualizarFatImportInfo();
+
   renderFaturamento();
 }
 
@@ -3636,10 +3631,8 @@ async function renderBackups() {
     : 'Nenhum backup realizado ainda.';
   if (urlEl) urlEl.value = localStorage.getItem(BACKUP_DRIVE_KEY) || '';
 
-  // Preencher URL e info de sync do faturamento
-  const fatUrlEl = document.getElementById('fatDriveUrl');
-  if (fatUrlEl) fatUrlEl.value = localStorage.getItem(FAT_DRIVE_KEY) || '';
-  atualizarFatSyncInfo();
+  // Preencher info de importação do faturamento
+  atualizarFatImportInfo();
 
   listEl.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px">Carregando backups…</div>';
 
