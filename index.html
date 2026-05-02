@@ -958,7 +958,7 @@ textarea { resize: vertical; min-height: 60px; }
             <button class="btn btn-sm" onclick="testarFatDriveUrl()">Testar</button>
             <button class="btn btn-sm" onclick="mostrarScriptFaturamento()">Ver script</button>
           </div>
-          <div style="font-size:10px;color:var(--muted);margin-top:6px">Implante como Web App → <strong>Executar como: Eu</strong> → <strong>Acesso: Qualquer pessoa (inclusive anônimos)</strong>. Use "Testar" para verificar a conexão.</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:6px">Lê o <strong>.xlsx</strong> diretamente — sem converter. Requer Drive API ativado no Apps Script. Use "Testar" para verificar.</div>
         </div>
         <div id="scriptFatBox" style="display:none;margin-bottom:8px">
           <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:6px">Cole este código no Apps Script (em qualquer planilha Google → Extensões → Apps Script):</div>
@@ -2942,80 +2942,79 @@ function excluirPagSocio(id) {
 // ═══════════════════════════════════════════════════════════════
 const FAT_DRIVE_KEY = 'lors_fat_drive_url';
 
-const APPS_SCRIPT_FAT = `// ── LORS Transportes — Leitura de Faturamento do Drive ──
-// ANTES DE IMPLANTAR: Configure o fuso horário do projeto
-//   Apps Script → Configurações (engrenagem) → Fuso horário → America/Sao_Paulo
+const APPS_SCRIPT_FAT = `// ── LORS Transportes — Leitura de Faturamento (.xlsx) ──
 //
-// 1. Cole em qualquer planilha Google → Extensões → Apps Script
-// 2. Salve (Ctrl+S)
-// 3. Clique em "Implantar" → "Nova implantação"
-//    - Tipo: App da Web
-//    - Executar como: Eu
-//    - Quem pode acessar: QUALQUER PESSOA (inclusive anônimos)
-// 4. Autorize as permissões quando solicitado
-// 5. Copie a URL e cole no painel Admin do LORS
+// CONFIGURAÇÃO INICIAL (uma vez só):
+// ① Fuso horário: Apps Script → ⚙ Configurações → Fuso horário → America/Sao_Paulo
+// ② Ativar Drive API: Apps Script → Serviços (+) → Drive API → Adicionar
+//
+// IMPLANTAÇÃO:
+// ① Salve (Ctrl+S)
+// ② Implantar → Nova implantação → Tipo: App da Web
+//    • Executar como: Eu
+//    • Quem pode acessar: Qualquer pessoa (inclusive anônimos)
+// ③ Autorize as permissões
+// ④ Copie a URL e cole no painel Admin do LORS
+
+var NOME_ARQUIVO = 'Abastecimentos e Faturamento.xlsx';
+var NOME_ABA     = 'Faturamento';
+var TZ           = 'America/Sao_Paulo';
 
 function doGet(e) {
+  var tempId = null;
   try {
-    // Busca primeiro a versão Google Sheets nativa; depois tenta xlsx como fallback
-    var ss;
-    var nomes = ['Abastecimentos e Faturamento', 'Abastecimentos e Faturamento.xlsx'];
-    var encontrado = false;
-    for (var ni = 0; ni < nomes.length; ni++) {
-      var files = DriveApp.getFilesByName(nomes[ni]);
-      if (files.hasNext()) {
-        var fileId = files.next().getId();
-        try {
-          ss = SpreadsheetApp.openById(fileId);
-          encontrado = true;
-          break;
-        } catch(e2) {
-          // arquivo xlsx nao suportado diretamente — continua tentando
-        }
-      }
+    // 1. Localizar o arquivo .xlsx no Drive
+    var files = DriveApp.getFilesByName(NOME_ARQUIVO);
+    if (!files.hasNext()) {
+      return _json({ error: 'Arquivo "' + NOME_ARQUIVO + '" nao encontrado no Drive.' });
     }
-    if (!encontrado || !ss) {
-      return _json({ error: 'Nao foi possivel abrir o arquivo. Converta para Google Sheets: no Drive, clique direito no xlsx → Abrir com Google Planilhas → Arquivo → Salvar como Planilhas Google.' });
-    }
+    var xlsxFile = files.next();
 
-    var sheet = ss.getSheetByName('Faturamento');
-    if (!sheet) return _json({ error: 'Aba "Faturamento" nao encontrada no arquivo' });
+    // 2. Converter xlsx → Planilha Google temporária (Drive API v2)
+    var blob     = xlsxFile.getBlob();
+    var resource = { title: '_lors_temp_' + Date.now(), mimeType: 'application/vnd.google-apps.spreadsheet' };
+    var tempFile = Drive.Files.insert(resource, blob);
+    tempId = tempFile.id;
+
+    // 3. Ler a aba Faturamento
+    var ss    = SpreadsheetApp.openById(tempId);
+    var sheet = ss.getSheetByName(NOME_ABA);
+    if (!sheet) {
+      return _json({ error: 'Aba "' + NOME_ABA + '" nao encontrada no arquivo.' });
+    }
 
     var rows = sheet.getDataRange().getValues();
-    var TZ = 'America/Sao_Paulo';
 
-    // Localizar linha de cabecalho (coluna B contem "Data")
+    // 4. Encontrar linha de cabecalho
     var hdr = -1;
     for (var i = 0; i < rows.length; i++) {
       if (String(rows[i][1]).trim().toLowerCase() === 'data') { hdr = i; break; }
     }
     if (hdr === -1) {
-      var amostra = rows.slice(0, 5).map(function(r){ return String(r[1]); });
-      return _json({ error: 'Cabecalho "Data" nao encontrado', amostra: amostra });
+      var amostra = rows.slice(0, 6).map(function(r) { return '"' + String(r[1]) + '"'; });
+      return _json({ error: 'Cabecalho "Data" nao encontrado. Valores na col B: ' + amostra.join(', ') });
     }
 
+    // 5. Ler viagens
     var viagens = [];
     for (var j = hdr + 1; j < rows.length; j++) {
       var row = rows[j];
       if (!row[1] && row[1] !== 0) continue;
 
-      // Converter data para YYYY-MM-DD (tratando Date, serial Excel e string)
+      // Converter data
       var dateStr;
       var v = row[1];
       if (v instanceof Date) {
         dateStr = Utilities.formatDate(v, TZ, 'yyyy-MM-dd');
       } else if (typeof v === 'number' && v > 1000) {
-        // Serial date do Excel
         var d = new Date((v - 25569) * 86400 * 1000);
         dateStr = Utilities.formatDate(d, TZ, 'yyyy-MM-dd');
       } else {
         var p = String(v).split('/');
-        if (p.length === 3) {
-          dateStr = p[2] + '-' + ('0'+p[1]).slice(-2) + '-' + ('0'+p[0]).slice(-2);
-        } else continue;
+        if (p.length === 3) dateStr = p[2] + '-' + ('0'+p[1]).slice(-2) + '-' + ('0'+p[0]).slice(-2);
+        else continue;
       }
 
-      // getValues() retorna numeros diretos — sem conversao de string necessaria
       var preco = Number(row[2]);
       var ton   = Number(row[3]);
       var total = Number(row[4]);
@@ -3030,8 +3029,14 @@ function doGet(e) {
     }
 
     return _json({ ok: true, viagens: viagens, count: viagens.length, updatedAt: new Date().toISOString() });
+
   } catch(err) {
     return _json({ error: err.message });
+  } finally {
+    // 6. Apagar arquivo temporário sempre, mesmo com erro
+    if (tempId) {
+      try { Drive.Files.trash(tempId); } catch(e2) {}
+    }
   }
 }
 
