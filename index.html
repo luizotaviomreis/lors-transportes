@@ -13,6 +13,7 @@
 <link rel="apple-touch-icon" href="/icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -2444,16 +2445,51 @@ function renderCharts() {
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:{size:11},boxWidth:12}}},scales:{y:{ticks:{callback:v=>'R$'+Math.round(v/1000)+'k'},grid:{color:'#f0ede8'}},x:{grid:{display:false}}}}
   });
 
-  // 2. Composição saídas (pizza)
+  // 2. Composição saídas (donut com % por segmento)
   const catTotals = CATS_SAIDA.map(c=>({cat:c,val:lancamentos.filter(l=>l.tipo==='saida'&&l.categoria===c).reduce((s,l)=>s+l.valor,0)})).filter(x=>x.val>0);
+  const totalSaidasComp = catTotals.reduce((s,x)=>s+x.val,0);
   const ctx2=document.getElementById('chartComposicao').getContext('2d');
   charts.comp = new Chart(ctx2,{
     type:'doughnut',
+    plugins:[ChartDataLabels],
     data:{
       labels:catTotals.map(x=>CAT_LABELS[x.cat]),
-      datasets:[{data:catTotals.map(x=>x.val),backgroundColor:['#c84b3188','#2d4a8a88','#e8a02088','#5b21b688','#1a6b4588','#7a757088'],borderWidth:2,borderColor:'#fff'}]
+      datasets:[{
+        data:catTotals.map(x=>x.val),
+        backgroundColor:['#c84b31cc','#2d4a8acc','#e8a020cc','#5b21b6cc','#1a6b45cc','#7a7570cc','#0ea5e9cc','#f43f5ecc'],
+        borderWidth:2,
+        borderColor:'#fff'
+      }]
     },
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:10}}},cutout:'65%'}
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      cutout:'58%',
+      plugins:{
+        legend:{
+          position:'bottom',
+          labels:{
+            font:{size:10},
+            boxWidth:10,
+            formatter:(val,ctx2)=>{
+              const pct=(ctx2.dataset.data[ctx2.dataIndex]/totalSaidasComp*100);
+              return CAT_LABELS[catTotals[ctx2.dataIndex]?.cat]||val;
+            }
+          }
+        },
+        datalabels:{
+          color:'#fff',
+          font:{weight:'bold',size:11,family:"'DM Mono', monospace"},
+          formatter:(value)=>{
+            const pct = totalSaidasComp > 0 ? value/totalSaidasComp*100 : 0;
+            if(pct < 2.5) return '';
+            return pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
+          },
+          textShadowBlur:4,
+          textShadowColor:'rgba(0,0,0,0.4)'
+        }
+      }
+    }
   });
 
   // 3. Saldo acumulado (histórico)
