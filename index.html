@@ -1057,6 +1057,10 @@ textarea { resize: vertical; min-height: 60px; }
     <span class="modal-close" onclick="fecharModal()">✕</span>
   </div>
   <form id="formLancamento" onsubmit="salvarLancamento(event)">
+    <div id="dupHint" style="display:none;background:var(--blue-lt);border:1px solid var(--accent);border-radius:var(--r);padding:9px 14px;font-size:11px;color:var(--accent);margin-bottom:14px;line-height:1.5">
+      ⊕ <strong>Duplicando lançamento</strong> — altere pelo menos um campo antes de salvar.<br>
+      <span style="opacity:.65" id="dupHintSrc"></span>
+    </div>
     <div class="form-grid">
       <div class="form-group">
         <label>Data</label>
@@ -2004,6 +2008,7 @@ let pagamentosSocios = _stored ? (_stored.pagamentosSocios||[]) : [];
 let faturamentos     = _stored ? (_stored.faturamentos    ||[]) : [];
 let abastecimentos   = _stored ? (_stored.abastecimentos  ||[]) : [];
 let editingId       = null;
+let duplicatingFrom = null; // snapshot original ao duplicar
 let currentSection  = 'receita'; // 'receita' | 'saida'
 let currentTab      = 'todos';
 let currentMes      = '';
@@ -2232,9 +2237,10 @@ function renderLancamentos() {
       <td><span class="badge badge-${CAT_BADGE[l.categoria]}">${CAT_LABELS[l.categoria]}</span></td>
       <td>${l.quemPagou||'—'}</td>
       <td class="r ${l.tipo==='receita'?'valor-pos':'valor-neg'}">${l.tipo==='receita'?'+':'-'}${fmt(l.valor)}</td>
-      <td style="text-align:right">
-        <button class="btn btn-sm" onclick="editarLancamento(${l.id})">✎</button>
-        <button class="btn btn-sm btn-danger" onclick="excluirLancamento(${l.id})">✕</button>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="btn btn-sm" onclick="editarLancamento(${l.id})" title="Editar">✎</button>
+        <button class="btn btn-sm" onclick="duplicarLancamento(${l.id})" title="Duplicar lançamento" style="color:var(--accent)">⊕</button>
+        <button class="btn btn-sm btn-danger" onclick="excluirLancamento(${l.id})" title="Excluir">✕</button>
       </td>
     </tr>`;
   }).join('');
@@ -2320,6 +2326,8 @@ function updateCategorias() {
 
 function abrirModal(id=null) {
   editingId = id;
+  duplicatingFrom = null;
+  document.getElementById('dupHint').style.display = 'none';
   document.getElementById('modalTitleText').textContent = id ? 'Editar Lançamento' : 'Novo Lançamento';
   const form = document.getElementById('formLancamento');
   form.reset();
@@ -2343,7 +2351,11 @@ function abrirModal(id=null) {
   document.getElementById('modalOverlay').classList.add('open');
 }
 
-function fecharModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+function fecharModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  duplicatingFrom = null;
+  document.getElementById('dupHint').style.display = 'none';
+}
 
 // Atualiza o DFC se estiver visível, sem precisar navegar para outra aba
 function refreshDFCIfVisible() {
@@ -2355,14 +2367,42 @@ function salvarLancamento(e) {
   e.preventDefault();
   const obj = {
     id: editingId || nextId++,
-    data: document.getElementById('fData').value,
-    descricao: document.getElementById('fDescricao').value,
-    tipo: document.getElementById('fTipo').value,
-    categoria: document.getElementById('fCategoria').value,
-    valor: parseFloat(document.getElementById('fValor').value),
-    obs: document.getElementById('fObs').value,
-    quemPagou: document.getElementById('fQuemPagou').value,
+    data:       document.getElementById('fData').value,
+    descricao:  document.getElementById('fDescricao').value,
+    tipo:       document.getElementById('fTipo').value,
+    categoria:  document.getElementById('fCategoria').value,
+    valor:      parseFloat(document.getElementById('fValor').value),
+    obs:        document.getElementById('fObs').value,
+    quemPagou:  document.getElementById('fQuemPagou').value,
   };
+
+  // Validação de duplicação: obrigar alteração de pelo menos 1 campo
+  if (duplicatingFrom) {
+    const o = duplicatingFrom;
+    const inalterado =
+      obj.data      === o.data      &&
+      obj.descricao === o.descricao &&
+      obj.tipo      === o.tipo      &&
+      obj.categoria === o.categoria &&
+      obj.valor     === o.valor     &&
+      (obj.obs       || '') === (o.obs       || '') &&
+      (obj.quemPagou || '') === (o.quemPagou || '');
+    if (inalterado) {
+      toast('Altere pelo menos um campo antes de duplicar.', 'error');
+      // Destaca o hint para chamar atenção
+      const hint = document.getElementById('dupHint');
+      hint.style.border = '2px solid var(--red)';
+      hint.style.background = 'var(--red-lt)';
+      hint.style.color = 'var(--red)';
+      setTimeout(() => {
+        hint.style.border = '1px solid var(--accent)';
+        hint.style.background = 'var(--blue-lt)';
+        hint.style.color = 'var(--accent)';
+      }, 1800);
+      return; // mantém o modal aberto
+    }
+  }
+
   if(editingId) { lancamentos = lancamentos.map(l=>l.id===editingId?obj:l); }
   else { lancamentos.push(obj); }
   fecharModal();
@@ -2377,6 +2417,37 @@ function salvarLancamento(e) {
 }
 
 function editarLancamento(id) { abrirModal(id); }
+
+function duplicarLancamento(id) {
+  const orig = lancamentos.find(x => x.id === id);
+  if (!orig) return;
+
+  // Guarda snapshot para comparação posterior
+  duplicatingFrom = { ...orig };
+
+  // Abre modal como novo (editingId = null), mas pré-preenchido
+  editingId = null;
+  document.getElementById('modalTitleText').textContent = '⊕ Duplicar Lançamento';
+
+  const form = document.getElementById('formLancamento');
+  form.reset();
+
+  document.getElementById('fData').value      = orig.data;
+  document.getElementById('fTipo').value      = orig.tipo;
+  updateCategorias();
+  document.getElementById('fCategoria').value = orig.categoria;
+  document.getElementById('fDescricao').value = orig.descricao;
+  document.getElementById('fValor').value     = orig.valor;
+  document.getElementById('fObs').value       = orig.obs || '';
+  document.getElementById('fQuemPagou').value = orig.quemPagou || '';
+
+  // Mostrar hint com referência ao original
+  document.getElementById('dupHintSrc').textContent =
+    `Original: "${orig.descricao}" · ${orig.data.split('-').reverse().join('/')} · ${orig.tipo === 'receita' ? '+' : '-'}${fmt(orig.valor)}`;
+  document.getElementById('dupHint').style.display = 'block';
+
+  document.getElementById('modalOverlay').classList.add('open');
+}
 function excluirLancamento(id) {
   if(!confirm('Excluir este lançamento?')) return;
   lancamentos = lancamentos.filter(l=>l.id!==id);
