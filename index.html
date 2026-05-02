@@ -2957,17 +2957,25 @@ const APPS_SCRIPT_FAT = `// ── LORS Transportes — Leitura de Faturamento d
 
 function doGet(e) {
   try {
-    var files = DriveApp.getFilesByName('Abastecimentos e Faturamento.xlsx');
-    if (!files.hasNext()) {
-      return _json({ error: 'Arquivo "Abastecimentos e Faturamento.xlsx" nao encontrado. Verifique o nome exato no Drive.' });
-    }
-
-    var fileId = files.next().getId();
+    // Busca primeiro a versão Google Sheets nativa; depois tenta xlsx como fallback
     var ss;
-    try {
-      ss = SpreadsheetApp.openById(fileId);
-    } catch(e2) {
-      return _json({ error: 'Erro ao abrir arquivo: ' + e2.message });
+    var nomes = ['Abastecimentos e Faturamento', 'Abastecimentos e Faturamento.xlsx'];
+    var encontrado = false;
+    for (var ni = 0; ni < nomes.length; ni++) {
+      var files = DriveApp.getFilesByName(nomes[ni]);
+      if (files.hasNext()) {
+        var fileId = files.next().getId();
+        try {
+          ss = SpreadsheetApp.openById(fileId);
+          encontrado = true;
+          break;
+        } catch(e2) {
+          // arquivo xlsx nao suportado diretamente — continua tentando
+        }
+      }
+    }
+    if (!encontrado || !ss) {
+      return _json({ error: 'Nao foi possivel abrir o arquivo. Converta para Google Sheets: no Drive, clique direito no xlsx → Abrir com Google Planilhas → Arquivo → Salvar como Planilhas Google.' });
     }
 
     var sheet = ss.getSheetByName('Faturamento');
