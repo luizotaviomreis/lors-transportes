@@ -916,6 +916,20 @@ textarea { resize: vertical; min-height: 60px; }
         <div id="adminBlockedList" style="display:flex;flex-direction:column;gap:8px"></div>
       </div>
 
+      <!-- ── Sincronização Nuvem ── -->
+      <div style="border-top:2px solid var(--border);padding-top:28px;margin-bottom:28px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:10px">
+          <div>
+            <div style="font-family:var(--font-head);font-size:14px;font-weight:700">Sincronização — Nuvem (Firestore)</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px" id="cloudSyncInfo">Carregando…</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-sm" onclick="forcaRecarregarNuvem()">⬇ Recarregar da nuvem</button>
+            <button class="btn btn-primary btn-sm" onclick="forcaSalvarNuvem()">☁ Salvar na nuvem agora</button>
+          </div>
+        </div>
+      </div>
+
       <!-- ── Faturamento ── -->
       <div style="border-top:2px solid var(--border);padding-top:28px;margin-bottom:28px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:10px">
@@ -2034,14 +2048,15 @@ function showPage(page) {
 // KPIs
 // ═══════════════════════════════════════════════════════════════
 function updateKPIs() {
-  const receita = lancamentos.filter(l=>l.tipo==='receita'&&l.categoria==='receita').reduce((s,l)=>s+l.valor,0);
-  const saidas  = lancamentos.filter(l=>l.tipo==='saida').reduce((s,l)=>s+l.valor,0);
+  const recEntradas = lancamentos.filter(l=>l.tipo==='receita');
+  const receita   = recEntradas.reduce((s,l)=>s+l.valor,0);
+  const saidas    = lancamentos.filter(l=>l.tipo==='saida').reduce((s,l)=>s+l.valor,0);
   const resultado = receita - saidas;
   document.getElementById('kpiReceita').textContent = fmt(receita);
   document.getElementById('kpiSaidas').textContent  = fmt(saidas);
-  document.getElementById('kpiResultado').textContent = fmt(resultado);
+  document.getElementById('kpiResultado').textContent = (resultado < 0 ? '−' : '') + fmt(resultado);
   document.getElementById('kpiResultado').className = 'card-value ' + (resultado>=0?'pos':'neg');
-  document.getElementById('kpiReceitaDelta').textContent = `${lancamentos.filter(l=>l.tipo==='receita'&&l.categoria==='receita').length} lançamentos`;
+  document.getElementById('kpiReceitaDelta').textContent = `${recEntradas.length} lançamento${recEntradas.length!==1?'s':''}`;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2463,7 +2478,38 @@ function exportarExcel() {
 }
 
 function exportarDFC() {
-  toast('Para exportar o DFC, use Ctrl+P → Salvar como PDF ou solicite exportação Excel.', 'success');
+  showToast('Para exportar o DFC, use Ctrl+P → Salvar como PDF ou solicite exportação Excel.', 'success');
+}
+
+async function forcaSalvarNuvem() {
+  const btn = event.target;
+  btn.disabled = true; btn.textContent = '☁ Salvando…';
+  try {
+    await saveDataToFirestore();
+    showToast('Dados salvos na nuvem com sucesso!', 'success');
+    renderBackups(); // atualiza o painel
+  } catch(e) {
+    showToast('Erro ao salvar na nuvem: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '☁ Salvar na nuvem agora';
+  }
+}
+
+async function forcaRecarregarNuvem() {
+  const btn = event.target;
+  btn.disabled = true; btn.textContent = '⬇ Carregando…';
+  try {
+    await loadDataFromFirestore();
+    renderLancamentos();
+    updateKPIs();
+    refreshDFCIfVisible();
+    showToast('Dados recarregados da nuvem!', 'success');
+    renderBackups();
+  } catch(e) {
+    showToast('Erro ao recarregar da nuvem: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '⬇ Recarregar da nuvem';
+  }
 }
 
 function download(filename, content, type) {
@@ -3485,6 +3531,23 @@ async function renderBackups() {
 
   // Preencher info de importação do faturamento
   atualizarFatImportInfo();
+
+  // Info da nuvem
+  const infoNuvem = document.getElementById('cloudSyncInfo');
+  if (infoNuvem) {
+    try {
+      const snap2 = await db.collection('appdata').doc('main').get();
+      if (snap2.exists) {
+        const d = snap2.data();
+        const dt = d.updatedAt ? new Date(d.updatedAt.toDate()).toLocaleString('pt-BR') : '—';
+        const nLanc = (d.lancamentos||[]).length;
+        const nFat  = (d.faturamentos||[]).length;
+        infoNuvem.innerHTML = `Última gravação: <strong>${dt}</strong> · ${nLanc} lançamentos · ${nFat} viagens de faturamento · por ${d.updatedBy||'—'}`;
+      } else {
+        infoNuvem.textContent = 'Nenhum dado encontrado no Firestore.';
+      }
+    } catch(e) { infoNuvem.textContent = 'Erro ao consultar Firestore: ' + e.message; }
+  }
 
   listEl.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px">Carregando backups…</div>';
 
