@@ -938,7 +938,7 @@ textarea { resize: vertical; min-height: 60px; }
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:10px">
           <div>
             <div style="font-family:var(--font-head);font-size:14px;font-weight:700">Importar Faturamento Histórico</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px" id="importFatStatus">52 viagens · fev–abr 2026 · R$ 140–170/ton</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px" id="importFatStatus">55 viagens · fev–mai 2026 · R$ 140–170/ton</div>
           </div>
           <button class="btn btn-primary btn-sm" id="btnImportFat" onclick="importarFaturamentoHistorico()">⬆ Importar agora</button>
         </div>
@@ -3493,28 +3493,23 @@ const FATURAMENTO_HISTORICO = [
   {data:'2026-04-25',ton:54.52,preco:170,total:9268.40},
   {data:'2026-04-27',ton:54.12,preco:170,total:9200.40},
   {data:'2026-04-28',ton:51.80,preco:170,total:8806.00},
+  {data:'2026-04-29',ton:54.74,preco:170,total:9305.80},
+  {data:'2026-04-30',ton:51.40,preco:170,total:8738.00},
+  {data:'2026-05-01',ton:51.66,preco:170,total:8782.20},
 ];
 
 async function importarFaturamentoHistorico() {
   if (!currentUser || currentUser.email !== ADMIN_EMAIL) return;
 
-  // Verificar se já foi importado
-  const configSnap = await db.collection('appdata').doc('config').get();
-  if (configSnap.exists && configSnap.data().faturamentoHistoricoImportado) {
-    if (!confirm('Este faturamento já foi importado anteriormente.\nDeseja importar novamente? (cria duplicatas)')) return;
-  }
-
-  const btn = document.getElementById('btnImportFat');
+  const btn    = document.getElementById('btnImportFat');
   const status = document.getElementById('importFatStatus');
   btn.disabled = true; btn.textContent = 'Importando…';
 
   // Migração: remover entradas _fatHistorico antigas de lancamentos (versão anterior)
   const hadOldEntries = lancamentos.some(l => l._fatHistorico);
-  if (hadOldEntries) {
-    lancamentos = lancamentos.filter(l => !l._fatHistorico);
-  }
+  if (hadOldEntries) lancamentos = lancamentos.filter(l => !l._fatHistorico);
 
-  // Adicionar ao array faturamentos (evita duplicatas por data)
+  // Adicionar ao array faturamentos (dedup por data — nunca cria duplicata)
   const datasExistentes = new Set(faturamentos.map(f => f.data));
   let adicionados = 0;
   FATURAMENTO_HISTORICO.forEach(f => {
@@ -3525,25 +3520,25 @@ async function importarFaturamentoHistorico() {
   });
   faturamentos.sort((a,b) => a.data.localeCompare(b.data));
 
-  saveData();
+  // Salvar em localStorage E aguardar Firestore
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos }));
+  await saveDataToFirestore();
 
-  // Marcar como importado no Firestore
-  await db.collection('appdata').doc('config').set(
-    { faturamentoHistoricoImportado: true, faturamentoImportadoEm: new Date().toISOString() },
-    { merge: true }
-  );
+  if (hadOldEntries) { renderLancamentos(); updateKPIs(); }
 
-  // Se havia lançamentos antigos, atualizar as abas de lançamentos/KPIs
-  if (hadOldEntries) {
-    renderLancamentos();
-    updateKPIs();
+  const totalImp = faturamentos.reduce((s,f) => s + f.total, 0);
+  const fmt2 = v => 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2,maximumFractionDigits:2});
+
+  if (adicionados > 0) {
+    status.textContent = `✓ ${adicionados} viagens adicionadas · total no app: ${faturamentos.length} · ${fmt2(totalImp)}`;
+    showToast(`${adicionados} viagens importadas! Total: ${faturamentos.length}`, 'success');
+  } else {
+    status.textContent = `✓ Já atualizado — ${faturamentos.length} viagens no app · ${fmt2(totalImp)}`;
+    showToast(`Faturamento já estava completo (${faturamentos.length} viagens)`, 'success');
   }
 
-  const totalImp = FATURAMENTO_HISTORICO.reduce((s,f) => s + f.total, 0);
-  const fmt2 = v => 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2,maximumFractionDigits:2});
-  status.textContent = `✓ ${adicionados} viagens importadas · total ${fmt2(totalImp)}`;
-  btn.textContent = '✓ Importado';
-  showToast(`${adicionados} viagens de faturamento importadas!`, 'success');
+  btn.textContent = adicionados > 0 ? `✓ ${adicionados} adicionadas` : '✓ Atualizado';
+  btn.disabled = false;
   renderFaturamento();
 }
 
