@@ -921,7 +921,7 @@ textarea { resize: vertical; min-height: 60px; }
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:10px">
           <div>
             <div style="font-family:var(--font-head);font-size:14px;font-weight:700">Faturamento — Viagens</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px" id="importFatStatus">55 viagens · fev–mai 2026 · R$ 140–170/ton</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px" id="importFatStatus">56 viagens · fev–mai 2026 · R$ 140–170/ton</div>
             <div style="font-size:11px;color:var(--muted);margin-top:3px" id="fatImportInfo">Nenhuma importação realizada neste dispositivo.</div>
           </div>
           <button class="btn btn-primary btn-sm" id="btnImportFat" onclick="importarFaturamentoHistorico()">⬆ Importar agora</button>
@@ -2335,10 +2335,21 @@ function renderDFC() {
     cols.forEach(m => {
       const v = row.fn ? row.fn(m) : null;
       if (v === null) { html += `<td></td>`; return; }
-      const isNegLine = row.neg && row.style === 'indent';
-      let display = v === 0 ? '—' : (isNegLine ? '-' : '') + fmt(v);
-      let color = '';
-      if (row.style === 'lucro') color = `color:${v >= 0 ? 'var(--green)' : 'var(--red)'}`;
+      let display, color = '';
+      if (v === 0) {
+        display = '—';
+      } else if (row.style === 'ebitda' || row.style === 'lucro') {
+        // linhas de saldo/resultado: sinal explícito + cor verde/vermelho
+        display = (v >= 0 ? '+' : '−') + fmt(v);
+        color = `color:${v >= 0 ? 'var(--green)' : 'var(--red)'}`;
+      } else if (row.style === 'resultado') {
+        // total entradas — sempre positivo
+        display = fmt(v);
+      } else {
+        // linhas indentadas de saída: prefixo − se neg:true
+        const isNegLine = row.neg && row.style === 'indent';
+        display = (isNegLine ? '−' : '') + fmt(v);
+      }
       html += `<td class="r" style="${color || 'font-variant-numeric:tabular-nums'}">${display}</td>`;
     });
     html += '</tr>';
@@ -3297,6 +3308,7 @@ const FATURAMENTO_HISTORICO = [
   {data:'2026-04-29',ton:54.74,preco:170,total:9305.80},
   {data:'2026-04-30',ton:51.40,preco:170,total:8738.00},
   {data:'2026-05-01',ton:51.66,preco:170,total:8782.20},
+  {data:'2026-05-02',ton:54.68,preco:170,total:9295.60},
 ];
 
 async function importarFaturamentoHistorico() {
