@@ -3082,7 +3082,7 @@ async function sincronizarFaturamentoDrive(silent = false) {
     }
 
     // Salvar sempre (mesmo sem novidades) para garantir persistência
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos }));
     await saveDataToFirestore();
 
     // Registrar info de última sincronização
@@ -3494,10 +3494,6 @@ async function importarFaturamentoHistorico() {
   });
   faturamentos.sort((a,b) => a.data.localeCompare(b.data));
 
-  // Salvar em localStorage E aguardar Firestore
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos }));
-  await saveDataToFirestore();
-
   if (hadOldEntries) { renderLancamentos(); updateKPIs(); }
 
   const totalImp = faturamentos.reduce((s,f) => s + f.total, 0);
@@ -3505,14 +3501,16 @@ async function importarFaturamentoHistorico() {
 
   if (adicionados > 0) {
     status.textContent = `✓ ${adicionados} viagens adicionadas · total no app: ${faturamentos.length} · ${fmt2(totalImp)}`;
-    showToast(`${adicionados} viagens importadas! Total: ${faturamentos.length}`, 'success');
   } else {
     status.textContent = `✓ Já atualizado — ${faturamentos.length} viagens no app · ${fmt2(totalImp)}`;
-    showToast(`Faturamento já estava completo (${faturamentos.length} viagens)`, 'success');
   }
 
-  // Importar abastecimentos junto
+  // Importar abastecimentos junto (antes de salvar, para incluir tudo em um único save)
   const abstAdicionados = await importarAbastecimentoHistorico();
+
+  // Salvar em localStorage E aguardar Firestore (inclui abastecimentos)
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos }));
+  await saveDataToFirestore();
 
   btn.textContent = adicionados > 0 ? `✓ ${adicionados} fat. + ${abstAdicionados} abast.` : '✓ Atualizado';
   btn.disabled = false;
@@ -3523,7 +3521,10 @@ async function importarFaturamentoHistorico() {
   atualizarFatImportInfo();
 
   renderFaturamento();
+  renderAbastecimentos();
+  if (adicionados > 0) showToast(`${adicionados} viagens importadas! Total: ${faturamentos.length}`, 'success');
   if (abstAdicionados > 0) showToast(`${abstAdicionados} abastecimentos importados!`, 'success');
+  if (adicionados === 0 && abstAdicionados === 0) showToast(`Dados já estavam completos (${faturamentos.length} viagens, ${abastecimentos.length} abast.)`, 'success');
 }
 
 // ═══════════════════════════════════════════════════════════════

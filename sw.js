@@ -1,4 +1,4 @@
-const CACHE = 'lors-v6';
+const CACHE = 'lors-v7';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
