@@ -3082,39 +3082,54 @@ async function sincronizarFaturamentoDrive(silent = false) {
     let data;
     try { data = JSON.parse(text); }
     catch(e) {
-      alert('❌ Resposta inválida do Apps Script.\n\nO script provavelmente exige login do Google.\nVerifique se o acesso foi definido como "Qualquer pessoa (inclusive anônimos)".\n\nResposta recebida:\n' + text.substring(0, 400));
+      alert('❌ Resposta inválida — o script provavelmente exige login.\nVerifique: acesso = "Qualquer pessoa (inclusive anônimos)"\n\nResposta:\n' + text.substring(0, 400));
       return;
     }
 
     if (data.error) {
-      alert('❌ Erro retornado pelo Apps Script:\n\n' + data.error + (data.amostra ? '\n\nPrimeiras células col B: ' + data.amostra.join(' | ') : ''));
+      alert('❌ Erro do Apps Script:\n\n' + data.error + (data.amostra ? '\n\nCélulas col B: ' + data.amostra.join(' | ') : ''));
+      return;
+    }
+
+    const viagens = data.viagens || [];
+    if (viagens.length === 0) {
+      alert('⚠️ O script não retornou nenhuma viagem. Verifique o arquivo Excel.');
       return;
     }
 
     const datasExistentes = new Set(faturamentos.map(f => f.data));
     let adicionados = 0;
-    (data.viagens || []).forEach(v => {
+    viagens.forEach(v => {
       if (!datasExistentes.has(v.data)) {
         faturamentos.push({ id: nextId++, data: v.data, ton: v.ton, preco: v.preco, total: v.total });
         adicionados++;
       }
     });
 
-    // Salvar info de última sincronização
-    const syncMeta = { date: new Date().toISOString(), driveCount: data.count || 0, appCount: faturamentos.length };
-    localStorage.setItem(FAT_SYNC_LAST_KEY, JSON.stringify(syncMeta));
-    atualizarFatSyncInfo();
-
     if (adicionados > 0) {
       faturamentos.sort((a,b) => a.data.localeCompare(b.data));
-      saveData();
-      renderFaturamento();
-      showToast(`${adicionados} nova${adicionados > 1 ? 's viagens importadas' : ' viagem importada'}! Total: ${faturamentos.length} viagens`, 'success');
-    } else {
-      if (!silent) showToast(`✓ Já atualizado — ${faturamentos.length} viagens no app`, 'success');
     }
+
+    // Salvar sempre (mesmo sem novidades) para garantir persistência
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos }));
+    await saveDataToFirestore();
+
+    // Registrar info de última sincronização
+    const syncMeta = { date: new Date().toISOString(), driveCount: viagens.length, appCount: faturamentos.length };
+    localStorage.setItem(FAT_SYNC_LAST_KEY, JSON.stringify(syncMeta));
+    atualizarFatSyncInfo();
+    renderFaturamento();
+
+    if (!silent) {
+      if (adicionados > 0) {
+        showToast(`✓ ${adicionados} nova${adicionados > 1 ? 's viagens' : ' viagem'} importada${adicionados > 1 ? 's' : ''}! Total: ${faturamentos.length}`, 'success');
+      } else {
+        showToast(`✓ Já atualizado — ${faturamentos.length} viagens no app`, 'success');
+      }
+    }
+
   } catch(err) {
-    alert('❌ Falha de conexão com o Drive:\n\n' + err.message + '\n\nVerifique se a URL está correta.');
+    alert('❌ Falha de conexão com o Drive:\n\n' + err.message);
     console.error('Fat Drive sync error:', err);
   } finally {
     if (syncBtn) { syncBtn.disabled = false; syncBtn.textContent = '⟳ Drive'; }
