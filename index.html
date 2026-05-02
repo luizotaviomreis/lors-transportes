@@ -313,16 +313,16 @@ textarea { resize: vertical; min-height: 60px; }
 .form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
 
 /* ── DRE ── */
-.dre-table table { font-size: 12px; }
-.dre-section td { background: var(--ink)!important; color: #fff!important; font-weight: 700; font-family: var(--font-head); font-size: 12px; padding: 8px 12px!important; }
-.dre-subsection td { background: var(--paper2)!important; color: var(--muted)!important; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; font-weight: 500; }
-.dre-resultado td { background: var(--blue-lt)!important; color: var(--accent)!important; font-weight: 700; }
-.dre-ebitda td { background: #e8f0fc!important; color: #1a3a7a!important; font-weight: 700; font-size: 13px; }
-.dre-lucro td { background: var(--green-lt)!important; color: var(--green)!important; font-weight: 700; font-size: 13px; }
-.dre-prejuizo td { background: var(--red-lt)!important; color: var(--red)!important; font-weight: 700; font-size: 13px; }
-.dre-blank { height: 6px!important; }
-.dre-blank td { padding: 3px!important; background: var(--paper)!important; }
-.dre-indent td:first-child { padding-left: 28px!important; }
+.dfc-table table { font-size: 12px; }
+.dfc-section td { background: var(--ink)!important; color: #fff!important; font-weight: 700; font-family: var(--font-head); font-size: 12px; padding: 8px 12px!important; }
+.dfc-subsection td { background: var(--paper2)!important; color: var(--muted)!important; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; font-weight: 500; }
+.dfc-resultado td { background: var(--blue-lt)!important; color: var(--accent)!important; font-weight: 700; }
+.dfc-ebitda td { background: #e8f0fc!important; color: #1a3a7a!important; font-weight: 700; font-size: 13px; }
+.dfc-lucro td { background: var(--green-lt)!important; color: var(--green)!important; font-weight: 700; font-size: 13px; }
+.dfc-prejuizo td { background: var(--red-lt)!important; color: var(--red)!important; font-weight: 700; font-size: 13px; }
+.dfc-blank { height: 6px!important; }
+.dfc-blank td { padding: 3px!important; background: var(--paper)!important; }
+.dfc-indent td:first-child { padding-left: 28px!important; }
 
 /* ── Charts ── */
 .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
@@ -585,18 +585,12 @@ textarea { resize: vertical; min-height: 60px; }
     <div class="nav-item active" id="navLancamentos" onclick="showPage('lancamentos')">
       <span class="nav-icon">◈</span> Lançamentos
     </div>
-    <div class="nav-item" id="navRecorrentes" onclick="showPage('recorrentes')">
-      <span class="nav-icon">↺</span> Recorrentes
-    </div>
     <div class="nav-item" id="navFaturamento" onclick="showPage('faturamento')">
       <span class="nav-icon">◑</span> Faturamento
     </div>
     <div class="nav-section">Relatórios</div>
     <div class="nav-item" id="navDRE" onclick="showPage('dre')">
-      <span class="nav-icon">▦</span> DRE
-    </div>
-    <div class="nav-item" id="navFluxo" onclick="showPage('fluxo')">
-      <span class="nav-icon">⟿</span> Fluxo de Caixa
+      <span class="nav-icon">▦</span> DFC
     </div>
     <div class="nav-item" id="navGraficos" onclick="showPage('graficos')">
       <span class="nav-icon">◉</span> Gráficos
@@ -733,25 +727,19 @@ textarea { resize: vertical; min-height: 60px; }
 
     <div id="pageDRE" style="display:none">
       <div class="export-bar">
-        <button class="btn btn-sm" onclick="exportarDRE()">⬇ Exportar DRE</button>
-        <select id="dreAno" onchange="renderDRE()" style="padding:5px 10px;font-size:12px;">
+        <button class="btn btn-sm" onclick="exportarDFC()">⬇ Exportar DFC</button>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);text-transform:none;letter-spacing:0;">
+          Saldo inicial (R$):
+          <input type="number" id="dfcSaldoInicial" value="0" step="0.01" style="width:130px;padding:5px 10px;font-size:12px;" onchange="renderDFC()">
+        </label>
+        <select id="dreAno" onchange="renderDFC()" style="padding:5px 10px;font-size:12px;">
           <option value="2025">2025</option>
           <option value="2026" selected>2026</option>
         </select>
       </div>
-      <div class="table-wrap dre-table" id="dreContainer"></div>
+      <div class="table-wrap dfc-table" id="dreContainer"></div>
     </div>
 
-    <div id="pageFluxo" style="display:none">
-      <div class="export-bar">
-        <button class="btn btn-sm" onclick="exportarFluxo()">⬇ Exportar Fluxo</button>
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);text-transform:none;letter-spacing:0;">
-          Faturamento quinzenal estimado: 
-          <input type="number" id="fatEstimado" value="85000" style="width:120px;padding:5px 10px;font-size:12px;" onchange="renderFluxo()">
-        </label>
-      </div>
-      <div class="table-wrap" id="fluxoContainer"></div>
-    </div>
 
     <div id="pageGraficos" style="display:none">
       <div class="charts-row">
@@ -768,10 +756,6 @@ textarea { resize: vertical; min-height: 60px; }
         <div class="chart-card">
           <div class="chart-title">Saldo Acumulado</div>
           <div style="position:relative;height:220px"><canvas id="chartSaldo"></canvas></div>
-        </div>
-        <div class="chart-card">
-          <div class="chart-title">Projeção de Caixa (próximos 9 meses)</div>
-          <div style="position:relative;height:220px"><canvas id="chartProjecao"></canvas></div>
         </div>
       </div>
     </div>
@@ -1288,7 +1272,7 @@ async function cadastrarUsuario() {
     await db.collection('users').doc(cred.user.uid).set({
       email, name: nome, photoURL: '',
       role: 'viewer', status: 'pending',
-      permissions: { lancamentos:true, recorrentes:true, dre:true, fluxo:true, graficos:true, socios:false, orcamento:true },
+      permissions: { lancamentos:true, dre:true, graficos:true, socios:false, orcamento:true },
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     // Desloga imediatamente — acesso só após aprovação
@@ -1326,7 +1310,7 @@ auth.onAuthStateChanged(async user => {
       await ref.set({
         email: user.email, name: user.displayName || 'Admin', photoURL: user.photoURL || '',
         role: 'admin', status: 'approved',
-        permissions: { lancamentos:true, recorrentes:true, dre:true, fluxo:true, graficos:true, socios:true, orcamento:true },
+        permissions: { lancamentos:true, dre:true, graficos:true, socios:true, orcamento:true },
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
     } else if (snap.data().status !== 'approved' || snap.data().role !== 'admin') {
@@ -1334,7 +1318,7 @@ auth.onAuthStateChanged(async user => {
       await ref.update({ status: 'approved', role: 'admin' });
     }
     currentUser = { uid: user.uid, email: user.email, name: user.displayName || 'Admin', photoURL: user.photoURL || '', role: 'admin', status: 'approved',
-      permissions: { lancamentos:true, recorrentes:true, dre:true, fluxo:true, graficos:true, socios:true, orcamento:true } };
+      permissions: { lancamentos:true, dre:true, graficos:true, socios:true, orcamento:true } };
     await loadDataFromFirestore();
     document.getElementById('mainApp').style.display = 'flex';
     applyUserUI();
@@ -1351,7 +1335,7 @@ auth.onAuthStateChanged(async user => {
     await ref.set({
       email: user.email, name: user.displayName || user.email, photoURL: user.photoURL || '',
       role: 'viewer', status: 'pending',
-      permissions: { lancamentos:true, recorrentes:true, dre:true, fluxo:true, graficos:true, socios:false, orcamento:true },
+      permissions: { lancamentos:true, dre:true, graficos:true, socios:false, orcamento:true },
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     snap = await ref.get();
@@ -1392,7 +1376,7 @@ function applyUserUI() {
 
   // Nav permissions (não-admin)
   if (u.role !== 'admin' && u.permissions) {
-    const map = { lancamentos:'navLancamentos', recorrentes:'navRecorrentes', dre:'navDRE', fluxo:'navFluxo', graficos:'navGraficos', socios:'navSocios', orcamento:'navOrcamento' };
+    const map = { lancamentos:'navLancamentos', dre:'navDRE', graficos:'navGraficos', socios:'navSocios', orcamento:'navOrcamento' };
     Object.entries(map).forEach(([key, id]) => {
       const el = document.getElementById(id);
       if (el) el.style.display = u.permissions[key] === false ? 'none' : 'flex';
@@ -1445,7 +1429,7 @@ async function saveDataToFirestore() {
 // ═══════════════════════════════════════════════════════════════
 // ADMIN — Gerenciamento de usuários
 // ═══════════════════════════════════════════════════════════════
-const PERM_LABELS = { lancamentos:'Lançamentos', recorrentes:'Recorrentes', dre:'DRE', fluxo:'Fluxo', graficos:'Gráficos', socios:'Sócios', orcamento:'Orçamento' };
+const PERM_LABELS = { lancamentos:'Lançamentos', dre:'DFC', graficos:'Gráficos', socios:'Sócios', orcamento:'Orçamento' };
 
 async function renderAdmin() {
   const snap = await db.collection('users').get();
@@ -1928,35 +1912,6 @@ const _stored = loadData();
 let lancamentos = _stored ? _stored.lancamentos : JSON.parse(JSON.stringify(_DEFAULT_LANC));
 let recorrentes = _stored ? _stored.recorrentes : JSON.parse(JSON.stringify(_DEFAULT_REC));
 
-// Parcelas futuras fixas (fora do sistema de recorrentes pois têm valores variáveis)
-const parcelasFuturas = [
-  {mes:'2026-04', desc:'Mallon (2ª parcela entrada)', cat:'financ', valor:58000},
-  {mes:'2026-04', desc:'Financiamento Caminhão 1ª parcela', cat:'financ', valor:28040.65},
-  {mes:'2026-04', desc:'Implemento 1ª parcela', cat:'financ', valor:13166.67},
-  {mes:'2026-04', desc:'Oficina e Transportes Jangada', cat:'custos', valor:5000},
-  {mes:'2026-04', desc:'Pneus 1ª parcela', cat:'financ', valor:7592.96},
-  {mes:'2026-05', desc:'Mallon (3ª parcela entrada)', cat:'financ', valor:58000},
-  {mes:'2026-05', desc:'Financiamento Caminhão 2ª parcela', cat:'financ', valor:18701.11},
-  {mes:'2026-05', desc:'Implemento 2ª parcela', cat:'financ', valor:13166.67},
-  {mes:'2026-05', desc:'Oficina e Transportes Jangada', cat:'custos', valor:5000},
-  {mes:'2026-05', desc:'Pneus 2ª parcela', cat:'financ', valor:7592.96},
-  {mes:'2026-06', desc:'Financiamento Caminhão 3ª parcela', cat:'financ', valor:18814.69},
-  {mes:'2026-06', desc:'Implemento 3ª parcela', cat:'financ', valor:13166.67},
-  {mes:'2026-06', desc:'Oficina e Transportes Jangada', cat:'custos', valor:5000},
-  {mes:'2026-06', desc:'Pneus 3ª parcela', cat:'financ', valor:7592.96},
-  {mes:'2026-07', desc:'Financiamento Caminhão 4ª parcela', cat:'financ', valor:18460.39},
-  {mes:'2026-07', desc:'Implemento 4ª parcela', cat:'financ', valor:13166.67},
-  {mes:'2026-07', desc:'Pneus 4ª parcela', cat:'financ', valor:7592.96},
-  {mes:'2026-08', desc:'Financiamento Caminhão 5ª parcela', cat:'financ', valor:19017.87},
-  {mes:'2026-08', desc:'Implemento 5ª parcela', cat:'financ', valor:13166.67},
-  {mes:'2026-08', desc:'Pneus 5ª parcela', cat:'financ', valor:7592.96},
-  {mes:'2026-09', desc:'Financiamento Caminhão 6ª parcela', cat:'financ', valor:17997.92},
-  {mes:'2026-09', desc:'Implemento 6ª parcela', cat:'financ', valor:13166.67},
-  {mes:'2026-09', desc:'Pneus 6ª parcela', cat:'financ', valor:7592.96},
-  {mes:'2026-10', desc:'Financiamento Caminhão 7ª parcela', cat:'financ', valor:18099.32},
-  {mes:'2026-11', desc:'Financiamento Caminhão 8ª parcela', cat:'financ', valor:18406.57},
-  {mes:'2026-12', desc:'Financiamento Caminhão 9ª parcela', cat:'financ', valor:17648.94},
-];
 
 let nextId           = _stored ? _stored.nextId           : 75;
 let pagamentosSocios = _stored ? (_stored.pagamentosSocios||[]) : [];
@@ -2001,21 +1956,6 @@ function getMesesRange(start='2026-04', end='2026-12') {
   return meses;
 }
 
-// Gera lançamentos de recorrentes para um mês específico
-function getRecorrentesDoMes(mesStr) {
-  const [ay,am] = mesStr.split('-').map(Number);
-  const result = [];
-  for(const r of recorrentes) {
-    const [iy,im] = r.inicio.split('-').map(Number);
-    const [fy,fm] = r.fim ? r.fim.split('-').map(Number) : [9999,12];
-    const dentroRange = (ay>iy||(ay===iy&&am>=im)) && (ay<fy||(ay===fy&&am<=fm));
-    if(!dentroRange) continue;
-    if(r.frequencia==='mensal') result.push({desc:r.descricao,cat:r.categoria,valor:r.valor});
-    if(r.frequencia==='quinzenal') {result.push({desc:r.descricao+' (1ª quinzena)',cat:r.categoria,valor:r.valor});result.push({desc:r.descricao+' (2ª quinzena)',cat:r.categoria,valor:r.valor});}
-    if(r.frequencia==='bimestral' && am%2===0) result.push({desc:r.descricao,cat:r.categoria,valor:r.valor});
-  }
-  return result;
-}
 
 // Soma por categoria e mês nos lançamentos reais
 function sumByMesCat(mes, cats) {
@@ -2030,9 +1970,7 @@ function sumReceitaMes(mes) {
 // ═══════════════════════════════════════════════════════════════
 const pages = {
   lancamentos: {el:'pageLancamentos', title:'Lançamentos', sub:'Receitas e despesas registradas'},
-  recorrentes: {el:'pageRecorrentes', title:'Despesas Recorrentes', sub:'Lançamentos automáticos por período'},
-  dre:         {el:'pageDRE',        title:'DRE', sub:'Demonstração do Resultado do Exercício'},
-  fluxo:       {el:'pageFluxo',      title:'Fluxo de Caixa Futuro', sub:'Projeção mensal de receitas e saídas'},
+  dre:         {el:'pageDRE',        title:'DFC', sub:'Demonstração do Fluxo de Caixa'},
   graficos:    {el:'pageGraficos',   title:'Gráficos', sub:'Análise visual dos dados financeiros'},
   faturamento: {el:'pageFaturamento', title:'Faturamento',         sub:'Receitas de frete por viagem'},
   socios:      {el:'pageSocios',     title:'Pagamento a Sócios',  sub:'Controle de reembolsos para Otávio e Rodrigo'},
@@ -2048,8 +1986,7 @@ function showPage(page) {
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>{if(n.textContent.trim().toLowerCase().includes(page.slice(0,4))||n.onclick?.toString().includes(page))n.classList.add('active');});
   updateKPIs();
-  if(page==='dre') renderDRE();
-  if(page==='fluxo') renderFluxo();
+  if(page==='dre') renderDFC();
   if(page==='graficos') setTimeout(renderCharts, 50);
   if(page==='faturamento') renderFaturamento();
   if(page==='socios')   renderSocios();
@@ -2290,236 +2227,122 @@ function excluirRecorrente(id) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// DRE
+// DFC — DEMONSTRAÇÃO DO FLUXO DE CAIXA
 // ═══════════════════════════════════════════════════════════════
-function renderDRE() {
+function renderDFC() {
   const ano = document.getElementById('dreAno').value;
-  // Pega meses que têm dados
-  const mesesComDados = [...new Set(lancamentos.filter(l=>l.data.startsWith(ano)).map(l=>dataMes(l.data)))].sort();
-  if(!mesesComDados.length) { document.getElementById('dreContainer').innerHTML='<p style="padding:20px;color:var(--muted)">Nenhum lançamento para este ano.</p>'; return; }
+  const saldoInicial = parseFloat(document.getElementById('dfcSaldoInicial').value) || 0;
 
-  // Adiciona coluna TOTAL
+  const mesesComDados = [...new Set(lancamentos.filter(l=>l.data.startsWith(ano)).map(l=>dataMes(l.data)))].sort();
+  if (!mesesComDados.length) {
+    document.getElementById('dreContainer').innerHTML = '<p style="padding:20px;color:var(--muted)">Nenhum lançamento para este ano.</p>';
+    return;
+  }
+
   const cols = [...mesesComDados, 'TOTAL'];
 
-  const dreRows = [
-    {label:'1. RECEITA BRUTA DE SERVIÇOS', style:'section'},
-    {label:'Faturamento de transporte', style:'indent', cat:'receita', tipo:'receita'},
-    {label:'Aportes de capital / Outros', style:'indent', cat:'outros', tipo:'receita'},
-    {label:'(=) RECEITA BRUTA TOTAL', style:'subtotal', calc: m => sumRec(m,'receita')+sumRec(m,'outros')},
-    {blank:true},
-    {label:'(-) Impostos sobre receita', style:'indent-neg', cat:'impostos', tipo:'saida'},
-    {label:'(=) RECEITA LÍQUIDA', style:'resultado', calc: m => sumRec(m,'receita')+sumRec(m,'outros')-sumSai(m,'impostos')},
-    {blank:true},
-    {label:'2. CUSTOS DOS SERVIÇOS PRESTADOS', style:'section'},
-    {label:'Despesas variáveis (combustível, pedágio)', style:'indent-neg', cat:'despvar', tipo:'saida'},
-    {label:'Manutenção', style:'indent-neg', cat:'manutencao', tipo:'saida'},
-    {label:'Seguro', style:'indent-neg', cat:'seguro', tipo:'saida'},
-    {label:'(=) TOTAL CUSTOS', style:'subtotal-neg', calc: m => sumSai(m,'despvar')+sumSai(m,'manutencao')+sumSai(m,'seguro')},
-    {blank:true},
-    {label:'(=) LUCRO BRUTO', style:'ebitda', calc: m =>
-      sumRec(m,'receita')+sumRec(m,'outros')-sumSai(m,'impostos')-sumSai(m,'despvar')-sumSai(m,'manutencao')-sumSai(m,'seguro')
-    },
-    {blank:true},
-    {label:'3. DESPESAS OPERACIONAIS', style:'section'},
-    {label:'Pessoal — salários e adiantamentos', style:'indent-neg', cat:'pessoal', tipo:'saida'},
-    {label:'Administrativo', style:'indent-neg', cat:'administrativo', tipo:'saida'},
-    {label:'(=) TOTAL DESPESAS OPERACIONAIS', style:'subtotal-neg', calc: m => sumSai(m,'pessoal')+sumSai(m,'administrativo')},
-    {blank:true},
-    {label:'(=) EBITDA / RESULTADO OPERACIONAL', style:'ebitda', calc: m =>
-      sumRec(m,'receita')+sumRec(m,'outros')-sumSai(m,'impostos')-sumSai(m,'despvar')-sumSai(m,'manutencao')-sumSai(m,'seguro')-sumSai(m,'pessoal')-sumSai(m,'administrativo')
-    },
-    {blank:true},
-    {label:'4. INVESTIMENTOS / FINANCIAMENTOS', style:'section'},
-    {label:'Implemento', style:'indent-neg', cat:'implemento', tipo:'saida'},
-    {label:'Caminhão', style:'indent-neg', cat:'caminhao', tipo:'saida'},
-    {label:'(=) TOTAL INVESTIMENTOS', style:'subtotal-neg', calc: m => sumSai(m,'implemento')+sumSai(m,'caminhao')},
-    {blank:true},
-    {label:'(=) RESULTADO LÍQUIDO DO PERÍODO', style:'lucro', calc: m =>
-      sumRec(m,'receita')+sumRec(m,'outros')-sumSai(m,'impostos')-sumSai(m,'despvar')-sumSai(m,'manutencao')-sumSai(m,'seguro')-sumSai(m,'pessoal')-sumSai(m,'administrativo')-sumSai(m,'implemento')-sumSai(m,'caminhao')
-    },
-  ];
-
   function sumRec(m, cat) {
-    if(m==='TOTAL') return mesesComDados.reduce((s,mm)=>s+sumRec(mm,cat),0);
-    return lancamentos.filter(l=>dataMes(l.data)===m&&l.tipo==='receita'&&l.categoria===cat).reduce((s,l)=>s+l.valor,0);
+    if (m === 'TOTAL') return mesesComDados.reduce((s,mm) => s + sumRec(mm, cat), 0);
+    return lancamentos.filter(l => dataMes(l.data)===m && l.tipo==='receita' && l.categoria===cat).reduce((s,l) => s+l.valor, 0);
   }
   function sumSai(m, cat) {
-    if(m==='TOTAL') return mesesComDados.reduce((s,mm)=>s+sumSai(mm,cat),0);
-    return lancamentos.filter(l=>dataMes(l.data)===m&&l.tipo==='saida'&&l.categoria===cat).reduce((s,l)=>s+l.valor,0);
+    if (m === 'TOTAL') return mesesComDados.reduce((s,mm) => s + sumSai(mm, cat), 0);
+    return lancamentos.filter(l => dataMes(l.data)===m && l.tipo==='saida' && l.categoria===cat).reduce((s,l) => s+l.valor, 0);
   }
-  function sumSaiCats(m, cats) {
-    return cats.reduce((s,c)=>s+sumSai(m,c),0);
+  function sumRecAll(m) {
+    if (m === 'TOTAL') return mesesComDados.reduce((s,mm) => s + sumRecAll(mm), 0);
+    return lancamentos.filter(l => dataMes(l.data)===m && l.tipo==='receita').reduce((s,l) => s+l.valor, 0);
   }
-  function getVal(row, m) {
-    if(row.calc) return row.calc(m==='TOTAL'?'TOTAL':m);
-    if(row.cats) return sumSaiCats(m,row.cats);
-    if(row.cat&&row.tipo==='receita') return sumRec(m,row.cat);
-    if(row.cat&&row.tipo==='saida') return sumSai(m,row.cat);
-    return null;
+  function sumSaiOp(m) {
+    return sumSai(m,'despvar') + sumSai(m,'manutencao') + sumSai(m,'seguro') + sumSai(m,'pessoal') + sumSai(m,'administrativo') + sumSai(m,'impostos');
+  }
+  function sumSaiInv(m) {
+    return sumSai(m,'implemento') + sumSai(m,'caminhao');
+  }
+  function fluxoLiquido(m) {
+    return sumRecAll(m) - sumSaiOp(m) - sumSaiInv(m);
   }
 
+  // Calcular saldo acumulado por mês (não para coluna TOTAL)
+  let acum = saldoInicial;
+  const saldoAcumPorMes = {};
+  mesesComDados.forEach(m => {
+    acum += fluxoLiquido(m);
+    saldoAcumPorMes[m] = acum;
+  });
+
+  const dfcRows = [
+    {label:'1. ENTRADAS', style:'section'},
+    {label:'Faturamento de transporte', style:'indent', fn: m => sumRec(m,'receita')},
+    {label:'Aportes de capital', style:'indent', fn: m => sumRec(m,'outros')},
+    {label:'Outros recebimentos', style:'indent', fn: m => {
+      if (m === 'TOTAL') return mesesComDados.reduce((s,mm) => s + lancamentos.filter(l => dataMes(l.data)===mm && l.tipo==='receita' && l.categoria!=='receita' && l.categoria!=='outros').reduce((ss,l)=>ss+l.valor,0), 0);
+      return lancamentos.filter(l => dataMes(l.data)===m && l.tipo==='receita' && l.categoria!=='receita' && l.categoria!=='outros').reduce((s,l)=>s+l.valor,0);
+    }},
+    {label:'(+) TOTAL ENTRADAS', style:'resultado', fn: m => sumRecAll(m)},
+    {blank:true},
+    {label:'2. SAÍDAS OPERACIONAIS', style:'section'},
+    {label:'Combustível e Pedágios', style:'indent', neg:true, fn: m => sumSai(m,'despvar')},
+    {label:'Manutenção', style:'indent', neg:true, fn: m => sumSai(m,'manutencao')},
+    {label:'Seguro', style:'indent', neg:true, fn: m => sumSai(m,'seguro')},
+    {label:'Pessoal — salários e adiantamentos', style:'indent', neg:true, fn: m => sumSai(m,'pessoal')},
+    {label:'Administrativo', style:'indent', neg:true, fn: m => sumSai(m,'administrativo')},
+    {label:'Impostos', style:'indent', neg:true, fn: m => sumSai(m,'impostos')},
+    {label:'(-) TOTAL SAÍDAS OPERACIONAIS', style:'subtotal', fn: m => sumSaiOp(m)},
+    {blank:true},
+    {label:'(=) SALDO OPERACIONAL', style:'ebitda', fn: m => sumRecAll(m) - sumSaiOp(m)},
+    {blank:true},
+    {label:'3. INVESTIMENTOS / FINANCIAMENTOS', style:'section'},
+    {label:'Implemento', style:'indent', neg:true, fn: m => sumSai(m,'implemento')},
+    {label:'Caminhão', style:'indent', neg:true, fn: m => sumSai(m,'caminhao')},
+    {label:'(-) TOTAL INVESTIMENTOS', style:'subtotal', fn: m => sumSaiInv(m)},
+    {blank:true},
+    {label:'(=) FLUXO LÍQUIDO DO PERÍODO', style:'lucro', fn: m => fluxoLiquido(m)},
+  ];
+
   const styleClass = {
-    section:'dre-section', indent:'dre-indent', 'indent-neg':'dre-indent',
-    subtotal:'dre-subsection', 'subtotal-neg':'dre-subsection',
-    resultado:'dre-resultado', ebitda:'dre-ebitda', lucro:'',
+    section:   'dfc-section',
+    indent:    'dfc-indent',
+    subtotal:  'dfc-subsection',
+    resultado: 'dfc-resultado',
+    ebitda:    'dfc-ebitda',
+    lucro:     '',
   };
 
   let html = `<table><thead><tr><th style="width:38%">Conta</th>`;
-  cols.forEach(m=>{ html+=`<th class="r${m==='TOTAL'?' mes-header':''}">${m==='TOTAL'?'TOTAL':mes2label(m)}</th>`; });
-  html+='</tr></thead><tbody>';
+  cols.forEach(m => { html += `<th class="r${m==='TOTAL'?' mes-header':''}">${m==='TOTAL'?'TOTAL':mes2label(m)}</th>`; });
+  html += '</tr></thead><tbody>';
 
-  dreRows.forEach(row=>{
-    if(row.blank){ html+=`<tr class="dre-blank"><td colspan="${cols.length+1}"></td></tr>`; return; }
-    const cls = styleClass[row.style]||'';
-    const isNeg = row.tipo==='saida'||row.style?.includes('neg');
-    html+=`<tr class="${cls}"><td>${row.label}</td>`;
-    cols.forEach(m=>{
-      const v = getVal(row,m);
-      if(v===null){ html+=`<td></td>`; return; }
-      const neg = isNeg && row.style!=='resultado'&&row.style!=='ebitda';
-      let display = v===0 ? '—' : (neg?'-':'')+fmt(v);
+  dfcRows.forEach(row => {
+    if (row.blank) { html += `<tr class="dfc-blank"><td colspan="${cols.length+1}"></td></tr>`; return; }
+    const cls = styleClass[row.style] || '';
+    html += `<tr class="${cls}"><td>${row.label}</td>`;
+    cols.forEach(m => {
+      const v = row.fn ? row.fn(m) : null;
+      if (v === null) { html += `<td></td>`; return; }
+      const isNegLine = row.neg && row.style === 'indent';
+      let display = v === 0 ? '—' : (isNegLine ? '-' : '') + fmt(v);
       let color = '';
-      if(row.style==='lucro') color=v>=0?'var(--green)':'var(--red)';
-      html+=`<td class="r" style="${color?'color:'+color:'font-variant-numeric:tabular-nums'}">${display}</td>`;
+      if (row.style === 'lucro') color = `color:${v >= 0 ? 'var(--green)' : 'var(--red)'}`;
+      html += `<td class="r" style="${color || 'font-variant-numeric:tabular-nums'}">${display}</td>`;
     });
-    html+='</tr>';
+    html += '</tr>';
   });
-  html+='</tbody></table>';
-  document.getElementById('dreContainer').innerHTML=html;
+
+  // Linha de Saldo Acumulado (apenas meses reais, não TOTAL)
+  html += `<tr class="dfc-blank"><td colspan="${cols.length+1}"></td></tr>`;
+  html += `<tr style="background:#1a1a2e;font-weight:700"><td style="color:#a5b4fc;font-family:var(--font-head)">(=) SALDO ACUMULADO</td>`;
+  cols.forEach(m => {
+    if (m === 'TOTAL') { html += `<td></td>`; return; }
+    const v = saldoAcumPorMes[m];
+    html += `<td class="r" style="color:${v >= 0 ? '#6ee7b7' : '#fca5a5'};font-variant-numeric:tabular-nums">${fmt(v)}</td>`;
+  });
+  html += '</tr>';
+
+  html += '</tbody></table>';
+  document.getElementById('dreContainer').innerHTML = html;
 }
 
-// ═══════════════════════════════════════════════════════════════
-// FLUXO DE CAIXA FUTURO
-// ═══════════════════════════════════════════════════════════════
-function renderFluxo() {
-  const fatQ = parseFloat(document.getElementById('fatEstimado').value)||85000;
-  const fatMensal = fatQ * 2;
-  const meses = getMesesRange('2026-04','2026-12');
-
-  // Monta saídas por mês: recorrentes + parcelas fixas
-  function getSaidasMes(mes) {
-    const rec = getRecorrentesDoMes(mes);
-    const parc = parcelasFuturas.filter(p=>p.mes===mes);
-    // Agrupar por categoria
-    const byCat = {};
-    [...rec, ...parc].forEach(item=>{
-      const c = item.cat||item.categoria;
-      byCat[c]=(byCat[c]||0)+item.valor;
-    });
-    return byCat;
-  }
-
-  // Impostos: 13.56% do faturamento
-  const pctImp = 0.1356;
-
-  const rows = [
-    {label:'RECEITAS', tipo:'header'},
-    {label:'Faturamento quinzenal (×2)', tipo:'receita', fn:()=>fatMensal},
-    {label:'TOTAL RECEITAS', tipo:'total-rec', fn:()=>fatMensal},
-    {label:'', tipo:'spacer'},
-    {label:'SAÍDAS — CUSTOS OPERACIONAIS', tipo:'header'},
-    {label:'Diesel e Arla (2 quinzenas)', tipo:'saida', cat:'custos', key:'diesel'},
-    {label:'Pedágio (Morane)', tipo:'saida', cat:'custos', key:'pedagio'},
-    {label:'Seguro Caminhão (Allianz)', tipo:'saida', cat:'custos', key:'seguro'},
-    {label:'Manutenção / Oficina Jangada', tipo:'saida', cat:'custos', key:'ofic'},
-    {label:'SAÍDAS — PESSOAL', tipo:'header'},
-    {label:'Salários e Adiantamentos', tipo:'saida', cat:'salarios', key:'sal'},
-    {label:'SAÍDAS — FINANCIAMENTOS', tipo:'header'},
-    {label:'Parcelas caminhão e implemento', tipo:'saida', cat:'financ', key:'fin'},
-    {label:'Pneus (parcelas)', tipo:'saida', cat:'financ', key:'pneus'},
-    {label:'SAÍDAS — IMPOSTOS', tipo:'header'},
-    {label:`Impostos (${(pctImp*100).toFixed(2)}% do faturamento)`, tipo:'saida', key:'imp'},
-    {label:'SAÍDAS — ADMINISTRATIVO', tipo:'header'},
-    {label:'Contabilidade + Sistemas + Câmeras', tipo:'saida', cat:'despesas', key:'adm'},
-    {label:'', tipo:'spacer'},
-    {label:'TOTAL SAÍDAS', tipo:'total-sai'},
-    {label:'', tipo:'spacer'},
-    {label:'SALDO MENSAL', tipo:'saldo'},
-    {label:'SALDO ACUMULADO', tipo:'acum'},
-  ];
-
-  // Calcular para cada mês
-  const data = {};
-  let acum = 99476.75; // saldo final do extrato
-  meses.forEach(m=>{
-    const byCat = getSaidasMes(m);
-    // Diesel: recorrentes quinzenais de combustível
-    const diesel = getRecorrentesDoMes(m).filter(r=>r.cat==='custos'&&r.desc.toLowerCase().includes('diesel')).reduce((s,r)=>s+r.valor,0);
-    const pedagio = getRecorrentesDoMes(m).filter(r=>r.cat==='custos'&&r.desc.toLowerCase().includes('pedágio')).reduce((s,r)=>s+r.valor,0);
-    const seguro  = getRecorrentesDoMes(m).filter(r=>r.cat==='custos'&&r.desc.toLowerCase().includes('allianz')).reduce((s,r)=>s+r.valor,0);
-    const ofic    = parcelasFuturas.filter(p=>p.mes===m&&p.cat==='custos'&&!p.desc.toLowerCase().includes('pneu')).reduce((s,p)=>s+p.valor,0);
-    const sal     = getRecorrentesDoMes(m).filter(r=>r.cat==='salarios').reduce((s,r)=>s+r.valor,0);
-    const finPar  = parcelasFuturas.filter(p=>p.mes===m&&p.cat==='financ'&&!p.desc.toLowerCase().includes('pneu')).reduce((s,p)=>s+p.valor,0);
-    const pneus   = parcelasFuturas.filter(p=>p.mes===m&&p.desc.toLowerCase().includes('pneu')).reduce((s,p)=>s+p.valor,0);
-    const imp     = fatMensal * pctImp;
-    const adm     = getRecorrentesDoMes(m).filter(r=>r.cat==='despesas').reduce((s,r)=>s+r.valor,0);
-    const totalSai= diesel+pedagio+seguro+ofic+sal+finPar+pneus+imp+adm;
-    const saldo   = fatMensal - totalSai;
-    acum += saldo;
-    data[m] = {diesel,pedagio,seguro,ofic,sal,finPar,pneus,imp,adm,totalSai,saldo,acum:acum-saldo+saldo};
-  });
-  // recalc acum properly
-  acum=99476.75;
-  meses.forEach(m=>{acum+=data[m].saldo;data[m].acum=acum;});
-
-  // Render
-  let html = `<table><thead><tr><th style="width:30%">Item</th>`;
-  meses.forEach(m=>html+=`<th class="r mes-header">${mes2label(m)}</th>`);
-  html+=`<th class="r mes-header">TOTAL</th></tr></thead><tbody>`;
-
-  const getRowVal = (row,m) => {
-    const d=data[m];
-    switch(row.key){
-      case 'diesel':return d.diesel; case 'pedagio':return d.pedagio; case 'seguro':return d.seguro;
-      case 'ofic':return d.ofic; case 'sal':return d.sal; case 'fin':return d.finPar;
-      case 'pneus':return d.pneus; case 'imp':return d.imp; case 'adm':return d.adm;
-    }
-    return 0;
-  };
-
-  rows.forEach(row=>{
-    if(row.tipo==='spacer'){html+=`<tr style="height:8px"><td colspan="${meses.length+2}"></td></tr>`;return;}
-    if(row.tipo==='header'){
-      html+=`<tr><td colspan="${meses.length+2}" style="background:var(--paper2);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:7px 12px;font-weight:500">${row.label}</td></tr>`;return;
-    }
-    if(row.tipo==='receita'){
-      html+=`<tr class="fc-row-receita"><td style="padding-left:20px">${row.label}</td>`;
-      meses.forEach(()=>html+=`<td class="r valor-pos">+${fmt(fatMensal)}</td>`);
-      html+=`<td class="r valor-pos">+${fmt(fatMensal*meses.length)}</td></tr>`;return;
-    }
-    if(row.tipo==='total-rec'){
-      html+=`<tr style="background:var(--green-lt);font-weight:700"><td>${row.label}</td>`;
-      meses.forEach(()=>html+=`<td class="r valor-pos">+${fmt(fatMensal)}</td>`);
-      html+=`<td class="r valor-pos">+${fmt(fatMensal*meses.length)}</td></tr>`;return;
-    }
-    if(row.tipo==='saida'){
-      const total = meses.reduce((s,m)=>s+getRowVal(row,m),0);
-      html+=`<tr><td style="padding-left:20px">${row.label}</td>`;
-      meses.forEach(m=>{ const v=getRowVal(row,m); html+=`<td class="r${v?'valor-neg':''}">${v?'-'+fmt(v):'—'}</td>`; });
-      html+=`<td class="r valor-neg">-${fmt(total)}</td></tr>`;return;
-    }
-    if(row.tipo==='total-sai'){
-      const total = meses.reduce((s,m)=>s+data[m].totalSai,0);
-      html+=`<tr style="background:var(--red-lt);font-weight:700"><td>TOTAL SAÍDAS</td>`;
-      meses.forEach(m=>html+=`<td class="r valor-neg">-${fmt(data[m].totalSai)}</td>`);
-      html+=`<td class="r valor-neg">-${fmt(total)}</td></tr>`;return;
-    }
-    if(row.tipo==='saldo'){
-      const total = meses.reduce((s,m)=>s+data[m].saldo,0);
-      html+=`<tr style="background:var(--ink);font-weight:700"><td style="color:#fff">SALDO MENSAL</td>`;
-      meses.forEach(m=>{const v=data[m].saldo;html+=`<td class="r" style="color:${v>=0?'#4ade80':'#f87171'}">${v>=0?'+':''} ${fmt(v)}</td>`;});
-      html+=`<td class="r" style="color:${total>=0?'#4ade80':'#f87171'}">${total>=0?'+':''} ${fmt(total)}</td></tr>`;return;
-    }
-    if(row.tipo==='acum'){
-      html+=`<tr style="background:#1a1a2e;font-weight:700"><td style="color:#a5b4fc">SALDO ACUMULADO</td>`;
-      meses.forEach(m=>{const v=data[m].acum;html+=`<td class="r" style="color:${v>=0?'#6ee7b7':'#fca5a5'}">${fmt(v)}</td>`;});
-      html+=`<td></td></tr>`;return;
-    }
-  });
-
-  html+='</tbody></table>';
-  document.getElementById('fluxoContainer').innerHTML=html;
-}
 
 // ═══════════════════════════════════════════════════════════════
 // GRÁFICOS
@@ -2572,29 +2395,6 @@ function renderCharts() {
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'R$'+Math.round(v/1000)+'k'},grid:{color:'#f0ede8'}},x:{grid:{display:false}}}}
   });
 
-  // 4. Projeção
-  const fatQ=parseFloat(document.getElementById('fatEstimado')?.value)||85000;
-  const fatM=fatQ*2;
-  const mProj=getMesesRange();
-  let acumP=99476.75;
-  const projSaldos=mProj.map(m=>{
-    const rec=getRecorrentesDoMes(m);
-    const diesel=rec.filter(r=>r.cat==='custos'&&r.desc.toLowerCase().includes('diesel')).reduce((s,r)=>s+r.valor,0);
-    const outros=rec.filter(r=>!r.desc.toLowerCase().includes('diesel')).reduce((s,r)=>s+r.valor,0);
-    const parc=parcelasFuturas.filter(p=>p.mes===m).reduce((s,p)=>s+p.valor,0);
-    const imp=fatM*0.1356;
-    acumP+=fatM-diesel-outros-parc-imp;
-    return acumP;
-  });
-  const ctx4=document.getElementById('chartProjecao').getContext('2d');
-  charts.proj=new Chart(ctx4,{
-    type:'line',
-    data:{labels:mProj.map(mes2label),datasets:[
-      {label:'Saldo Acumulado Projetado',data:projSaldos,borderColor:'#7c3aed',backgroundColor:'#7c3aed11',borderWidth:2,fill:true,tension:.3,pointRadius:4,pointBackgroundColor:'#7c3aed'},
-      {label:'Zero',data:mProj.map(()=>0),borderColor:'#ef444488',borderDash:[5,5],borderWidth:1.5,pointRadius:0}
-    ]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:{size:11},boxWidth:12}}},scales:{y:{ticks:{callback:v=>'R$'+Math.round(v/1000)+'k'},grid:{color:'#f0ede8'}},x:{grid:{display:false}}}}
-  });
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2608,11 +2408,8 @@ function exportarExcel() {
   toast('CSV exportado!', 'success');
 }
 
-function exportarDRE() {
-  toast('Para exportar a DRE completa em Excel, use o arquivo .xlsx gerado anteriormente.', 'success');
-}
-function exportarFluxo() {
-  toast('Para exportar o Fluxo em Excel, use o arquivo .xlsx gerado anteriormente.', 'success');
+function exportarDFC() {
+  toast('Para exportar o DFC, use Ctrl+P → Salvar como PDF ou solicite exportação Excel.', 'success');
 }
 
 function download(filename, content, type) {
