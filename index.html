@@ -1795,11 +1795,12 @@ function copiarAppsScript() {
 // ═══════════════════════════════════════════════════════════════
 // ESTADO
 // ═══════════════════════════════════════════════════════════════
-const CATS_RECEITA = ['receita'];
+const CATS_RECEITA = ['receita', 'aporte', 'outros'];
 const CATS_SAIDA   = ['despvar','manutencao','pessoal','administrativo','implemento','caminhao','seguro','impostos','outros'];
 
 const CAT_LABELS = {
-  receita:       'Receita',
+  receita:       'Faturamento',
+  aporte:        'Aporte de Capital',
   despvar:       'Despesas Variável',
   manutencao:    'Manutenção',
   pessoal:       'Pessoal',
@@ -1812,7 +1813,7 @@ const CAT_LABELS = {
 };
 
 const CAT_BADGE = {
-  receita:'receita', despvar:'despvar', manutencao:'manutencao',
+  receita:'receita', aporte:'receita', despvar:'despvar', manutencao:'manutencao',
   pessoal:'pessoal', administrativo:'administrativo', implemento:'implemento',
   caminhao:'caminhao', seguro:'seguro', impostos:'impostos', outros:'outros'
 };
@@ -1932,12 +1933,29 @@ let charts = {};
     if (p.lancamentoId != null) return; // já vinculado
     const isAporte = p.tipo === 'aporte';
     const lancTipo = isAporte ? 'receita' : 'saida';
-    const lancCat  = isAporte ? 'receita' : (p.categoria || 'pessoal');
+    const lancCat  = isAporte ? 'aporte' : (p.categoria || 'pessoal');
     const lancDesc = isAporte ? `Aporte ${p.socio}: ${p.desc}` : `Reembolso ${p.socio}: ${p.desc}`;
     const lancId   = nextId++;
     lancamentos.push({ id: lancId, tipo: lancTipo, categoria: lancCat, descricao: lancDesc, valor: p.valor, data: p.data, quemPagou: isAporte ? p.socio : 'LORS', obs: '' });
     p.lancamentoId = lancId;
     alterou = true;
+  });
+  if (alterou) saveData();
+})();
+
+// Migração silenciosa: normaliza categorias de receita legadas
+(function migrarCategoriasReceita() {
+  let alterou = false;
+  lancamentos.forEach(l => {
+    if (l.tipo !== 'receita') return;
+    // 'outros' com "Aporte" na descrição → 'aporte'
+    if (l.categoria === 'outros' && l.descricao && l.descricao.toLowerCase().includes('aporte')) {
+      l.categoria = 'aporte'; alterou = true;
+    }
+    // categoria 'receita' com "Aporte" na descrição (aportes socios antigos) → 'aporte'
+    if (l.categoria === 'receita' && l.descricao && l.descricao.toLowerCase().startsWith('aporte')) {
+      l.categoria = 'aporte'; alterou = true;
+    }
   });
   if (alterou) saveData();
 })();
@@ -2274,11 +2292,8 @@ function renderDFC() {
   const dfcRows = [
     {label:'1. ENTRADAS', style:'section'},
     {label:'Faturamento de transporte', style:'indent', fn: m => sumRec(m,'receita')},
-    {label:'Aportes de capital', style:'indent', fn: m => sumRec(m,'outros')},
-    {label:'Outros recebimentos', style:'indent', fn: m => {
-      if (m === 'TOTAL') return mesesComDados.reduce((s,mm) => s + lancamentos.filter(l => dataMes(l.data)===mm && l.tipo==='receita' && l.categoria!=='receita' && l.categoria!=='outros').reduce((ss,l)=>ss+l.valor,0), 0);
-      return lancamentos.filter(l => dataMes(l.data)===m && l.tipo==='receita' && l.categoria!=='receita' && l.categoria!=='outros').reduce((s,l)=>s+l.valor,0);
-    }},
+    {label:'Aportes de capital', style:'indent', fn: m => sumRec(m,'aporte')},
+    {label:'Outros recebimentos', style:'indent', fn: m => sumRec(m,'outros')},
     {label:'(+) TOTAL ENTRADAS', style:'resultado', fn: m => sumRecAll(m)},
     {blank:true},
     {label:'2. SAÍDAS OPERACIONAIS', style:'section'},
@@ -2680,7 +2695,7 @@ function salvarPagSocio(e) {
 
   // Cria lançamento vinculado
   const lancTipo = tipo === 'aporte' ? 'receita' : 'saida';
-  const lancCat  = tipo === 'aporte' ? 'receita' : categoria;
+  const lancCat  = tipo === 'aporte' ? 'aporte' : categoria;
   const lancDesc = tipo === 'aporte'
     ? `Aporte ${socio}: ${desc}`
     : `Reembolso ${socio}: ${desc}`;
