@@ -653,6 +653,7 @@ textarea { resize: vertical; min-height: 60px; }
       <div class="card"><div class="card-label">Receita Total</div><div class="card-value pos" id="kpiReceita">R$ 0</div><div class="card-delta" id="kpiReceitaDelta">período registrado</div></div>
       <div class="card"><div class="card-label">Total Saídas</div><div class="card-value neg" id="kpiSaidas">R$ 0</div><div class="card-delta">despesas e custos</div></div>
       <div class="card"><div class="card-label">Resultado Líquido</div><div class="card-value neu" id="kpiResultado">R$ 0</div><div class="card-delta">receita - saídas</div></div>
+      <div class="card"><div class="card-label">Impostos s/ Faturamento</div><div class="card-value" id="kpiImpostoPct" style="color:var(--yellow)">0,00%</div><div class="card-delta" id="kpiImpostoDelta">R$ 0 em impostos</div></div>
     </div>
 
     <!-- Páginas -->
@@ -2048,15 +2049,21 @@ function showPage(page) {
 // KPIs
 // ═══════════════════════════════════════════════════════════════
 function updateKPIs() {
-  const recEntradas = lancamentos.filter(l=>l.tipo==='receita');
-  const receita   = recEntradas.reduce((s,l)=>s+l.valor,0);
-  const saidas    = lancamentos.filter(l=>l.tipo==='saida').reduce((s,l)=>s+l.valor,0);
-  const resultado = receita - saidas;
-  document.getElementById('kpiReceita').textContent = fmt(receita);
-  document.getElementById('kpiSaidas').textContent  = fmt(saidas);
-  document.getElementById('kpiResultado').textContent = (resultado < 0 ? '−' : '') + fmt(resultado);
-  document.getElementById('kpiResultado').className = 'card-value ' + (resultado>=0?'pos':'neg');
+  const recEntradas  = lancamentos.filter(l=>l.tipo==='receita');
+  const receita      = recEntradas.reduce((s,l)=>s+l.valor,0);
+  const saidas       = lancamentos.filter(l=>l.tipo==='saida').reduce((s,l)=>s+l.valor,0);
+  const resultado    = receita - saidas;
+  const impostos     = lancamentos.filter(l=>l.tipo==='saida'&&l.categoria==='impostos').reduce((s,l)=>s+l.valor,0);
+  const faturBruto   = lancamentos.filter(l=>l.tipo==='receita'&&l.categoria==='receita').reduce((s,l)=>s+l.valor,0);
+  const impostoPct   = faturBruto > 0 ? (impostos / faturBruto) * 100 : 0;
+
+  document.getElementById('kpiReceita').textContent    = fmt(receita);
+  document.getElementById('kpiSaidas').textContent     = fmt(saidas);
+  document.getElementById('kpiResultado').textContent  = (resultado < 0 ? '−' : '') + fmt(resultado);
+  document.getElementById('kpiResultado').className    = 'card-value ' + (resultado>=0?'pos':'neg');
   document.getElementById('kpiReceitaDelta').textContent = `${recEntradas.length} lançamento${recEntradas.length!==1?'s':''}`;
+  document.getElementById('kpiImpostoPct').textContent  = impostoPct.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + '%';
+  document.getElementById('kpiImpostoDelta').textContent = fmt(impostos) + ' em impostos';
 }
 
 // ═══════════════════════════════════════════════════════════════
