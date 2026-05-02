@@ -2584,30 +2584,44 @@ function renderDFC() {
       let display, color = '';
       if (v === 0) {
         display = '—';
+        color = 'color:var(--muted)';
       } else if (row.style === 'ebitda' || row.style === 'lucro') {
-        // linhas de saldo/resultado: sinal explícito + cor verde/vermelho
+        // Saldo/resultado: sinal explícito + cor
         display = (v >= 0 ? '+' : '−') + fmt(v);
-        color = `color:${v >= 0 ? 'var(--green)' : 'var(--red)'}`;
+        color   = `color:${v >= 0 ? 'var(--green)' : 'var(--red)'}`;
       } else if (row.style === 'resultado') {
-        // total entradas — sempre positivo
-        display = fmt(v);
+        // (+) TOTAL ENTRADAS — sempre positivo, verde
+        display = '+' + fmt(v);
+        color   = 'color:var(--green)';
+      } else if (row.style === 'subtotal') {
+        // (−) TOTAL SAÍDAS e (−) TOTAL INVESTIMENTOS — negativo, vermelho
+        display = v > 0 ? '−' + fmt(v) : fmt(v);
+        color   = 'color:var(--red)';
+      } else if (row.neg) {
+        // Linhas de detalhe de saída — negativo, vermelho suave
+        display = v > 0 ? '−' + fmt(v) : fmt(v);
+        color   = 'color:var(--red)';
       } else {
-        // linhas indentadas de saída: prefixo − se neg:true
-        const isNegLine = row.neg && row.style === 'indent';
-        display = (isNegLine ? '−' : '') + fmt(v);
+        // Linhas de detalhe de entrada — positivo, verde suave
+        display = v > 0 ? '+' + fmt(v) : fmt(v);
+        color   = 'color:var(--green)';
       }
-      html += `<td class="r" style="${color || 'font-variant-numeric:tabular-nums'}">${display}</td>`;
+      html += `<td class="r" style="${color};font-variant-numeric:tabular-nums">${display}</td>`;
     });
     html += '</tr>';
   });
 
   // Linha de Saldo Acumulado (apenas meses reais, não TOTAL)
   html += `<tr class="dfc-blank"><td colspan="${cols.length+1}"></td></tr>`;
+  // Na coluna TOTAL: mostra o saldo acumulado final (último mês)
+  const ultimoMes = mesesComDados[mesesComDados.length - 1];
+  const saldoFinal = saldoAcumPorMes[ultimoMes] ?? 0;
   html += `<tr style="background:#1a1a2e;font-weight:700"><td style="color:#a5b4fc;font-family:var(--font-head)">(=) SALDO ACUMULADO</td>`;
   cols.forEach(m => {
-    if (m === 'TOTAL') { html += `<td></td>`; return; }
-    const v = saldoAcumPorMes[m];
-    html += `<td class="r" style="color:${v >= 0 ? '#6ee7b7' : '#fca5a5'};font-variant-numeric:tabular-nums">${fmt(v)}</td>`;
+    const v = m === 'TOTAL' ? saldoFinal : saldoAcumPorMes[m];
+    const cor = v >= 0 ? '#6ee7b7' : '#fca5a5';
+    const sinal = v >= 0 ? '+' : '−';
+    html += `<td class="r" style="color:${cor};font-variant-numeric:tabular-nums">${sinal}${fmt(v)}</td>`;
   });
   html += '</tr>';
 
