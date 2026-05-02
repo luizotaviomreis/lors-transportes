@@ -589,6 +589,9 @@ textarea { resize: vertical; min-height: 60px; }
     <div class="nav-item" id="navFaturamento" onclick="showPage('faturamento')">
       <span class="nav-icon">◑</span> Faturamento
     </div>
+    <div class="nav-item" id="navAbastecimentos" onclick="showPage('abastecimentos')">
+      <span class="nav-icon">⛽</span> Abastecimentos
+    </div>
     <div class="nav-section">Relatórios</div>
     <div class="nav-item" id="navDRE" onclick="showPage('dre')">
       <span class="nav-icon">▦</span> DFC
@@ -833,6 +836,42 @@ textarea { resize: vertical; min-height: 60px; }
             <tfoot id="tfootFaturamento"></tfoot>
           </table>
         </div>
+      </div>
+    </div>
+
+    <!-- ── Abastecimentos ── -->
+    <div id="pageAbastecimentos" style="display:none">
+      <!-- Cards resumo -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:20px" id="abstCards"></div>
+      <!-- Filtros -->
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+        <button id="abstBtnTodos"  class="btn btn-primary btn-sm" onclick="setAbstFiltro('todos')">Todos</button>
+        <button id="abstBtnDiesel" class="btn btn-sm"             onclick="setAbstFiltro('Diesel')">🔵 Diesel</button>
+        <button id="abstBtnArla"   class="btn btn-sm"             onclick="setAbstFiltro('Arla')">🟡 Arla</button>
+        <div style="flex:1"></div>
+        <select id="abstFiltroAno" onchange="renderAbastecimentos()" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--font-mono);font-size:12px;background:#fff">
+          <option value="">Todos os anos</option>
+        </select>
+        <select id="abstFiltroMes" onchange="renderAbastecimentos()" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--font-mono);font-size:12px;background:#fff">
+          <option value="">Todos os meses</option>
+        </select>
+      </div>
+      <!-- Tabela -->
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th onclick="sortAbst('data')" style="cursor:pointer">Data ⇅</th>
+              <th>Fornecedor</th>
+              <th style="cursor:pointer" onclick="sortAbst('prod')">Produto ⇅</th>
+              <th class="r" onclick="sortAbst('qtd')" style="cursor:pointer">Quantidade (L) ⇅</th>
+              <th class="r">R$/L</th>
+              <th class="r">Total</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyAbastecimentos"></tbody>
+          <tfoot id="tfootAbastecimentos"></tfoot>
+        </table>
       </div>
     </div>
 
@@ -1392,7 +1431,7 @@ function applyUserUI() {
 
   // Nav permissions (não-admin)
   if (u.role !== 'admin' && u.permissions) {
-    const map = { lancamentos:'navLancamentos', dre:'navDRE', graficos:'navGraficos', socios:'navSocios', orcamento:'navOrcamento' };
+    const map = { lancamentos:'navLancamentos', dre:'navDRE', graficos:'navGraficos', socios:'navSocios', orcamento:'navOrcamento', abastecimentos:'navAbastecimentos' };
     Object.entries(map).forEach(([key, id]) => {
       const el = document.getElementById(id);
       if (el) el.style.display = u.permissions[key] === false ? 'none' : 'flex';
@@ -1414,10 +1453,11 @@ async function loadDataFromFirestore() {
       nextId           = d.nextId           || nextId;
       pagamentosSocios = d.pagamentosSocios || pagamentosSocios;
       faturamentos     = d.faturamentos     || faturamentos;
+      abastecimentos   = d.abastecimentos   || abastecimentos;
       // Normalizar categorias após carga do Firestore
       const migrou = aplicarMigracoes();
       // Salvar cache local (com dados já migrados)
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos }));
       // Se houve migração, persistir de volta no Firestore
       if (migrou) saveDataToFirestore();
     }
@@ -1433,7 +1473,7 @@ async function saveDataToFirestore() {
     const badge = document.getElementById('cloudSyncBadge');
     if (badge) { badge.textContent = '☁ salvando…'; badge.style.color = 'var(--yellow)'; }
     await db.collection('appdata').doc('main').set({
-      lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos,
+      lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       updatedBy: currentUser.email
     });
@@ -1550,7 +1590,7 @@ async function togglePerm(uid, perm, val) {
 const STORAGE_KEY = 'lors_financeiro_v1';
 
 function saveData() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos }));
   saveDataToFirestore();
   if (gdriveConfig.url && gdriveConfig.autoSync !== false) {
     sincronizarGDrive(true);
@@ -1673,6 +1713,7 @@ async function carregarDoGDrive() {
     recorrentes      = json.recorrentes      || [];
     pagamentosSocios = json.pagamentosSocios || pagamentosSocios;
     faturamentos     = json.faturamentos     || faturamentos;
+    abastecimentos   = json.abastecimentos   || abastecimentos;
     nextId           = json.nextId || (Math.max(0, ...lancamentos.map(l => l.id)) + 1);
     aplicarMigracoes();
     saveData();
@@ -1940,6 +1981,7 @@ let recorrentes = _stored ? _stored.recorrentes : JSON.parse(JSON.stringify(_DEF
 let nextId           = _stored ? _stored.nextId           : 75;
 let pagamentosSocios = _stored ? (_stored.pagamentosSocios||[]) : [];
 let faturamentos     = _stored ? (_stored.faturamentos    ||[]) : [];
+let abastecimentos   = _stored ? (_stored.abastecimentos  ||[]) : [];
 let editingId  = null;
 let currentTab = 'todos';
 let currentMes = '';
@@ -2025,6 +2067,7 @@ const pages = {
   dre:         {el:'pageDRE',        title:'DFC', sub:'Demonstração do Fluxo de Caixa'},
   graficos:    {el:'pageGraficos',   title:'Gráficos', sub:'Análise visual dos dados financeiros'},
   faturamento: {el:'pageFaturamento', title:'Faturamento',         sub:'Receitas de frete por viagem'},
+  abastecimentos: {el:'pageAbastecimentos', title:'Abastecimentos', sub:'Diesel e Arla — registros diários'},
   socios:      {el:'pageSocios',     title:'Pagamento a Sócios',  sub:'Controle de reembolsos para Otávio e Rodrigo'},
   orcamento:   {el:'pageOrcamento',  title:'Orçamento de Frete',  sub:'Simulador de custo e margem por viagem'},
   admin:       {el:'pageAdmin',      title:'Usuários',            sub:'Gerenciamento de acesso ao sistema'},
@@ -2041,6 +2084,7 @@ function showPage(page) {
   if(page==='dre') renderDFC();
   if(page==='graficos') setTimeout(renderCharts, 50);
   if(page==='faturamento') renderFaturamento();
+  if(page==='abastecimentos') renderAbastecimentos();
   if(page==='socios')   renderSocios();
   if(page==='orcamento') calcOrcamento();
   if(page==='admin')    { renderAdmin(); renderBackups(); }
@@ -3467,7 +3511,10 @@ async function importarFaturamentoHistorico() {
     showToast(`Faturamento já estava completo (${faturamentos.length} viagens)`, 'success');
   }
 
-  btn.textContent = adicionados > 0 ? `✓ ${adicionados} adicionadas` : '✓ Atualizado';
+  // Importar abastecimentos junto
+  const abstAdicionados = await importarAbastecimentoHistorico();
+
+  btn.textContent = adicionados > 0 ? `✓ ${adicionados} fat. + ${abstAdicionados} abast.` : '✓ Atualizado';
   btn.disabled = false;
 
   // Registrar data/hora da última importação
@@ -3476,6 +3523,206 @@ async function importarFaturamentoHistorico() {
   atualizarFatImportInfo();
 
   renderFaturamento();
+  if (abstAdicionados > 0) showToast(`${abstAdicionados} abastecimentos importados!`, 'success');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ABASTECIMENTOS
+// ═══════════════════════════════════════════════════════════════
+let abstFiltro = 'todos';
+let abstSort = { col:'data', asc:true };
+
+const ABASTECIMENTO_HISTORICO = [
+  {data:'2026-02-12',forn:'Mallon',prod:'Diesel',qtd:431.56,vUnit:5.79,vTotal:2498.73},
+  {data:'2026-02-12',forn:'Mallon',prod:'Arla',qtd:53.00,vUnit:3.45,vTotal:182.85},
+  {data:'2026-02-15',forn:'Dunapetrol',prod:'Diesel',qtd:424.45,vUnit:5.89,vTotal:2500.00},
+  {data:'2026-02-16',forn:'Hresko',prod:'Diesel',qtd:400.00,vUnit:5.29,vTotal:2116.00},
+  {data:'2026-02-17',forn:'Hresko',prod:'Diesel',qtd:376.00,vUnit:5.29,vTotal:1989.04},
+  {data:'2026-02-17',forn:'Hresko',prod:'Arla',qtd:63.01,vUnit:2.99,vTotal:188.39},
+  {data:'2026-02-18',forn:'Hresko',prod:'Diesel',qtd:403.00,vUnit:5.29,vTotal:2131.87},
+  {data:'2026-02-19',forn:'Hresko',prod:'Diesel',qtd:376.00,vUnit:5.29,vTotal:1989.04},
+  {data:'2026-02-19',forn:'Hresko',prod:'Arla',qtd:54.04,vUnit:2.99,vTotal:161.57},
+  {data:'2026-02-20',forn:'Hresko',prod:'Diesel',qtd:376.00,vUnit:5.29,vTotal:1989.04},
+  {data:'2026-02-23',forn:'Hresko',prod:'Arla',qtd:45.06,vUnit:2.99,vTotal:134.72},
+  {data:'2026-02-23',forn:'Hresko',prod:'Diesel',qtd:399.00,vUnit:5.39,vTotal:2150.61},
+  {data:'2026-02-24',forn:'Hresko',prod:'Diesel',qtd:375.00,vUnit:5.39,vTotal:2021.25},
+  {data:'2026-02-25',forn:'Hresko',prod:'Arla',qtd:48.09,vUnit:2.99,vTotal:143.78},
+  {data:'2026-02-25',forn:'Hresko',prod:'Diesel',qtd:403.00,vUnit:5.39,vTotal:2172.17},
+  {data:'2026-02-26',forn:'Hresko',prod:'Diesel',qtd:376.00,vUnit:5.39,vTotal:2026.64},
+  {data:'2026-02-27',forn:'Hresko',prod:'Arla',qtd:47.68,vUnit:2.99,vTotal:142.55},
+  {data:'2026-02-27',forn:'Hresko',prod:'Diesel',qtd:386.00,vUnit:5.39,vTotal:2080.54},
+  {data:'2026-03-02',forn:'Hresko',prod:'Diesel',qtd:406.00,vUnit:null,vTotal:null},
+  {data:'2026-03-03',forn:'Hresko',prod:'Diesel',qtd:396.00,vUnit:null,vTotal:null},
+  {data:'2026-03-03',forn:'Hresko',prod:'Arla',qtd:48.77,vUnit:null,vTotal:null},
+  {data:'2026-03-04',forn:'Hresko',prod:'Diesel',qtd:392.00,vUnit:null,vTotal:null},
+  {data:'2026-03-05',forn:'Hresko',prod:'Arla',qtd:45.68,vUnit:null,vTotal:null},
+  {data:'2026-03-05',forn:'Hresko',prod:'Diesel',qtd:396.00,vUnit:null,vTotal:null},
+  {data:'2026-03-06',forn:'Hresko',prod:'Diesel',qtd:395.00,vUnit:null,vTotal:null},
+  {data:'2026-03-07',forn:'Hresko',prod:'Arla',qtd:41.03,vUnit:null,vTotal:null},
+  {data:'2026-03-07',forn:'Hresko',prod:'Diesel',qtd:391.00,vUnit:null,vTotal:null},
+  {data:'2026-03-09',forn:'Hresko',prod:'Diesel',qtd:416.00,vUnit:null,vTotal:null},
+  {data:'2026-03-10',forn:'Hresko',prod:'Arla',qtd:43.02,vUnit:null,vTotal:null},
+  {data:'2026-03-10',forn:'Hresko',prod:'Diesel',qtd:348.00,vUnit:null,vTotal:null},
+  {data:'2026-03-11',forn:'Hresko',prod:'Diesel',qtd:427.00,vUnit:null,vTotal:null},
+  {data:'2026-03-13',forn:'Hresko',prod:'Diesel',qtd:385.00,vUnit:null,vTotal:null},
+  {data:'2026-03-13',forn:'Hresko',prod:'Arla',qtd:40.05,vUnit:null,vTotal:null},
+  {data:'2026-03-16',forn:'Hresko',prod:'Diesel',qtd:257.00,vUnit:null,vTotal:null},
+  {data:'2026-03-17',forn:'Hresko',prod:'Arla',qtd:50.55,vUnit:null,vTotal:null},
+  {data:'2026-03-17',forn:'Hresko',prod:'Diesel',qtd:565.00,vUnit:null,vTotal:null},
+  {data:'2026-03-18',forn:'Hresko',prod:'Diesel',qtd:403.00,vUnit:null,vTotal:null},
+  {data:'2026-03-19',forn:'Hresko',prod:'Arla',qtd:40.01,vUnit:null,vTotal:null},
+  {data:'2026-03-19',forn:'Hresko',prod:'Diesel',qtd:440.00,vUnit:null,vTotal:null},
+  {data:'2026-03-20',forn:'Hresko',prod:'Diesel',qtd:401.00,vUnit:null,vTotal:null},
+  {data:'2026-03-21',forn:'Hresko',prod:'Diesel',qtd:405.00,vUnit:null,vTotal:null},
+  {data:'2026-03-21',forn:'Hresko',prod:'Arla',qtd:43.31,vUnit:null,vTotal:null},
+  {data:'2026-03-23',forn:'Hresko',prod:'Diesel',qtd:470.09,vUnit:7.25,vTotal:3408.15},
+  {data:'2026-03-24',forn:'Hresko',prod:'Diesel',qtd:438.01,vUnit:7.25,vTotal:3175.57},
+  {data:'2026-03-25',forn:'Hresko',prod:'Diesel',qtd:435.03,vUnit:7.25,vTotal:3153.97},
+  {data:'2026-03-25',forn:'Hresko',prod:'Arla',qtd:61.56,vUnit:null,vTotal:null},
+  {data:'2026-03-26',forn:'Hresko',prod:'Diesel',qtd:387.00,vUnit:null,vTotal:null},
+  {data:'2026-03-27',forn:'Hresko',prod:'Diesel',qtd:242.00,vUnit:null,vTotal:null},
+  {data:'2026-03-28',forn:'Hresko',prod:'Diesel',qtd:553.00,vUnit:null,vTotal:null},
+  {data:'2026-03-28',forn:'Hresko',prod:'Arla',qtd:59.52,vUnit:null,vTotal:null},
+  {data:'2026-03-30',forn:'Hresko',prod:'Diesel',qtd:233.00,vUnit:null,vTotal:null},
+  {data:'2026-03-31',forn:'Hresko',prod:'Diesel',qtd:570.00,vUnit:null,vTotal:null},
+  {data:'2026-03-31',forn:'Hresko',prod:'Arla',qtd:42.54,vUnit:null,vTotal:null},
+  {data:'2026-04-01',forn:'Hresko',prod:'Diesel',qtd:388.00,vUnit:null,vTotal:null},
+  {data:'2026-04-02',forn:'Hresko',prod:'Arla',qtd:40.01,vUnit:null,vTotal:null},
+  {data:'2026-04-02',forn:'Hresko',prod:'Diesel',qtd:400.00,vUnit:null,vTotal:null},
+  {data:'2026-04-06',forn:'Hresko',prod:'Diesel',qtd:379.00,vUnit:null,vTotal:null},
+  {data:'2026-04-09',forn:'Hresko',prod:'Diesel',qtd:402.00,vUnit:null,vTotal:null},
+  {data:'2026-04-10',forn:'Hresko',prod:'Diesel',qtd:430.00,vUnit:null,vTotal:null},
+  {data:'2026-04-10',forn:'Hresko',prod:'Arla',qtd:60.52,vUnit:null,vTotal:null},
+  {data:'2026-04-11',forn:'Hresko',prod:'Diesel',qtd:385.00,vUnit:null,vTotal:null},
+  {data:'2026-04-13',forn:'Hresko',prod:'Arla',qtd:39.92,vUnit:null,vTotal:null},
+  {data:'2026-04-13',forn:'Hresko',prod:'Diesel',qtd:397.00,vUnit:null,vTotal:null},
+  {data:'2026-04-14',forn:'Hresko',prod:'Diesel',qtd:405.00,vUnit:null,vTotal:null},
+  {data:'2026-04-15',forn:'Hresko',prod:'Diesel',qtd:405.00,vUnit:null,vTotal:null},
+  {data:'2026-04-20',forn:'Hresko',prod:'Arla',qtd:63.32,vUnit:null,vTotal:null},
+  {data:'2026-04-20',forn:'Hresko',prod:'Diesel',qtd:411.00,vUnit:null,vTotal:null},
+  {data:'2026-04-21',forn:'Hresko',prod:'Diesel',qtd:396.00,vUnit:null,vTotal:null},
+  {data:'2026-04-22',forn:'Hresko',prod:'Arla',qtd:40.03,vUnit:null,vTotal:null},
+  {data:'2026-04-22',forn:'Hresko',prod:'Diesel',qtd:270.00,vUnit:null,vTotal:null},
+  {data:'2026-04-23',forn:'Hresko',prod:'Diesel',qtd:539.00,vUnit:null,vTotal:null},
+  {data:'2026-04-24',forn:'Hresko',prod:'Arla',qtd:40.49,vUnit:null,vTotal:null},
+  {data:'2026-04-24',forn:'Hresko',prod:'Diesel',qtd:387.00,vUnit:null,vTotal:null},
+  {data:'2026-04-25',forn:'Hresko',prod:'Diesel',qtd:395.00,vUnit:null,vTotal:null},
+  {data:'2026-04-27',forn:'Hresko',prod:'Diesel',qtd:411.00,vUnit:null,vTotal:null},
+  {data:'2026-04-28',forn:'Hresko',prod:'Arla',qtd:56.04,vUnit:null,vTotal:null},
+  {data:'2026-04-28',forn:'Hresko',prod:'Diesel',qtd:402.00,vUnit:null,vTotal:null},
+  {data:'2026-04-29',forn:'Hresko',prod:'Diesel',qtd:270.00,vUnit:null,vTotal:null},
+  {data:'2026-04-30',forn:'Hresko',prod:'Diesel',qtd:537.00,vUnit:null,vTotal:null},
+  {data:'2026-05-01',forn:'Hresko',prod:'Diesel',qtd:405.00,vUnit:null,vTotal:null},
+  {data:'2026-05-01',forn:'Hresko',prod:'Arla',qtd:64.20,vUnit:null,vTotal:null},
+  {data:'2026-05-02',forn:'Hresko',prod:'Arla',qtd:400.00,vUnit:null,vTotal:null},
+];
+
+function setAbstFiltro(f) {
+  abstFiltro = f;
+  document.getElementById('abstBtnTodos').className  = 'btn btn-sm' + (f==='todos' ?' btn-primary':'');
+  document.getElementById('abstBtnDiesel').className = 'btn btn-sm' + (f==='Diesel'?' btn-primary':'');
+  document.getElementById('abstBtnArla').className   = 'btn btn-sm' + (f==='Arla'  ?' btn-primary':'');
+  renderAbastecimentos();
+}
+
+function sortAbst(col) {
+  if (abstSort.col === col) abstSort.asc = !abstSort.asc;
+  else { abstSort.col = col; abstSort.asc = true; }
+  renderAbastecimentos();
+}
+
+function renderAbastecimentos() {
+  const anoSel = document.getElementById('abstFiltroAno').value;
+  const mesSel = document.getElementById('abstFiltroMes').value;
+
+  // Preencher selects
+  const anos = [...new Set(abastecimentos.map(a => a.data.slice(0,4)))].sort().reverse();
+  const selAno = document.getElementById('abstFiltroAno');
+  const selMes = document.getElementById('abstFiltroMes');
+  const anoAtual = selAno.value; const mesAtual = selMes.value;
+  selAno.innerHTML = '<option value="">Todos os anos</option>' + anos.map(a=>`<option value="${a}"${a===anoAtual?' selected':''}>${a}</option>`).join('');
+  const mesesNomes = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  selMes.innerHTML = '<option value="">Todos os meses</option>' + mesesNomes.slice(1).map((n,i)=>{const v=String(i+1).padStart(2,'0');return `<option value="${v}"${v===mesAtual?' selected':''}>${n}</option>`;}).join('');
+
+  // Filtrar
+  let dados = [...abastecimentos];
+  if (abstFiltro !== 'todos') dados = dados.filter(a => a.prod === abstFiltro);
+  if (anoSel) dados = dados.filter(a => a.data.startsWith(anoSel));
+  if (mesSel) dados = dados.filter(a => a.data.slice(5,7) === mesSel);
+
+  // Ordenar
+  dados.sort((a,b) => {
+    let va = a[abstSort.col==='qtd'?'qtd':abstSort.col==='prod'?'prod':'data'];
+    let vb = b[abstSort.col==='qtd'?'qtd':abstSort.col==='prod'?'prod':'data'];
+    if (typeof va === 'string') return abstSort.asc ? va.localeCompare(vb) : vb.localeCompare(va);
+    return abstSort.asc ? va - vb : vb - va;
+  });
+
+  // Cards
+  const totalDiesel = abastecimentos.filter(a=>a.prod==='Diesel'&&(!anoSel||a.data.startsWith(anoSel))&&(!mesSel||a.data.slice(5,7)===mesSel)).reduce((s,a)=>s+a.qtd,0);
+  const totalArla   = abastecimentos.filter(a=>a.prod==='Arla'  &&(!anoSel||a.data.startsWith(anoSel))&&(!mesSel||a.data.slice(5,7)===mesSel)).reduce((s,a)=>s+a.qtd,0);
+  const totalCusto  = abastecimentos.filter(a=>a.vTotal&&(!anoSel||a.data.startsWith(anoSel))&&(!mesSel||a.data.slice(5,7)===mesSel)).reduce((s,a)=>s+(a.vTotal||0),0);
+  const nReg        = dados.length;
+  const fmtL = v => v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' L';
+
+  document.getElementById('abstCards').innerHTML = [
+    {label:'Total Diesel',     val: fmtL(totalDiesel), color:'var(--accent)', bg:'var(--blue-lt)'},
+    {label:'Total Arla',       val: fmtL(totalArla),   color:'var(--yellow)', bg:'var(--yellow-lt)'},
+    {label:'Custo c/ valores', val: fmt(totalCusto),   color:'var(--red)',    bg:'var(--red-lt)'},
+    {label:'Registros filtro', val: nReg,              color:'var(--muted)',  bg:'#fff'},
+  ].map(c=>`<div style="background:${c.bg};border:1px solid var(--border);border-radius:var(--r);padding:18px 20px">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px">${c.label}</div>
+    <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:${c.color}">${c.val}</div>
+  </div>`).join('');
+
+  // Tabela
+  const fmtData = d => { const [y,m,dd]=d.split('-'); return `${dd}/${m}/${y}`; };
+  const tbody = document.getElementById('tbodyAbastecimentos');
+  const tfoot = document.getElementById('tfootAbastecimentos');
+
+  if (!dados.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:40px">Nenhum registro encontrado.</td></tr>`;
+    tfoot.innerHTML = '';
+    return;
+  }
+
+  tbody.innerHTML = dados.map(a => {
+    const prodColor = a.prod === 'Diesel' ? 'var(--accent)' : 'var(--yellow)';
+    const prodBg    = a.prod === 'Diesel' ? 'var(--blue-lt)' : 'var(--yellow-lt)';
+    return `<tr>
+      <td>${fmtData(a.data)}</td>
+      <td>${a.forn}</td>
+      <td><span style="background:${prodBg};color:${prodColor};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">${a.prod}</span></td>
+      <td class="r">${a.qtd.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td class="r" style="color:var(--muted)">${a.vUnit ? 'R$ '+a.vUnit.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—'}</td>
+      <td class="r">${a.vTotal ? fmt(a.vTotal) : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  // Rodapé com totais
+  const totQtd   = dados.reduce((s,a)=>s+a.qtd,0);
+  const totValor = dados.reduce((s,a)=>s+(a.vTotal||0),0);
+  tfoot.innerHTML = `<tr style="background:var(--paper2);font-weight:700">
+    <td colspan="3">Total (${dados.length} registros)</td>
+    <td class="r">${totQtd.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})} L</td>
+    <td></td>
+    <td class="r">${totValor > 0 ? fmt(totValor) : '—'}</td>
+  </tr>`;
+}
+
+async function importarAbastecimentoHistorico() {
+  if (!currentUser || currentUser.email !== ADMIN_EMAIL) return;
+  const datasExistentes = new Set(abastecimentos.map(a => a.data + '|' + a.prod + '|' + a.forn));
+  let adicionados = 0;
+  ABASTECIMENTO_HISTORICO.forEach(a => {
+    const key = a.data + '|' + a.prod + '|' + a.forn;
+    if (!datasExistentes.has(key)) {
+      abastecimentos.push({ ...a });
+      adicionados++;
+    }
+  });
+  abastecimentos.sort((a,b) => a.data.localeCompare(b.data) || a.prod.localeCompare(b.prod));
+  return adicionados;
 }
 
 // ═══════════════════════════════════════════════════════════════
