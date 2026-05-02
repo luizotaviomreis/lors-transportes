@@ -975,14 +975,14 @@ textarea { resize: vertical; min-height: 60px; }
       <div style="border-top:2px solid var(--border);padding-top:28px;margin-bottom:28px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:10px">
           <div>
-            <div style="font-family:var(--font-head);font-size:14px;font-weight:700">Faturamento — Viagens</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px" id="importFatStatus">56 viagens · fev–mai 2026 · R$ 140–170/ton</div>
+            <div style="font-family:var(--font-head);font-size:14px;font-weight:700">Importar dados do Excel</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px" id="importFatStatus">56 viagens · 82 abastecimentos · fev–mai 2026</div>
             <div style="font-size:11px;color:var(--muted);margin-top:3px" id="fatImportInfo">Nenhuma importação realizada neste dispositivo.</div>
           </div>
           <button class="btn btn-primary btn-sm" id="btnImportFat" onclick="importarFaturamentoHistorico()">⬆ Importar agora</button>
         </div>
         <div style="font-size:11px;color:var(--muted);background:var(--paper2);border-radius:var(--r);padding:10px 14px">
-          ℹ️ Para adicionar novas viagens: atualize o Excel no Drive e solicite atualização do sistema. O botão acima importa todas as viagens sem criar duplicatas.
+          ℹ️ Importa em conjunto: <strong>Faturamento</strong> (viagens, toneladas, valores) e <strong>Abastecimentos</strong> (Diesel e Arla, dia a dia). Seguro re-executar — nunca cria duplicatas.
         </div>
       </div>
 
@@ -3659,17 +3659,28 @@ function renderAbastecimentos() {
   });
 
   // Cards
-  const totalDiesel = abastecimentos.filter(a=>a.prod==='Diesel'&&(!anoSel||a.data.startsWith(anoSel))&&(!mesSel||a.data.slice(5,7)===mesSel)).reduce((s,a)=>s+a.qtd,0);
-  const totalArla   = abastecimentos.filter(a=>a.prod==='Arla'  &&(!anoSel||a.data.startsWith(anoSel))&&(!mesSel||a.data.slice(5,7)===mesSel)).reduce((s,a)=>s+a.qtd,0);
-  const totalCusto  = abastecimentos.filter(a=>a.vTotal&&(!anoSel||a.data.startsWith(anoSel))&&(!mesSel||a.data.slice(5,7)===mesSel)).reduce((s,a)=>s+(a.vTotal||0),0);
+  const filtroAbst  = a => (!anoSel||a.data.startsWith(anoSel)) && (!mesSel||a.data.slice(5,7)===mesSel);
+  const totalDiesel = abastecimentos.filter(a=>a.prod==='Diesel'&&filtroAbst(a)).reduce((s,a)=>s+a.qtd,0);
+  const totalArla   = abastecimentos.filter(a=>a.prod==='Arla'  &&filtroAbst(a)).reduce((s,a)=>s+a.qtd,0);
+  const totalCusto  = abastecimentos.filter(a=>a.vTotal         &&filtroAbst(a)).reduce((s,a)=>s+(a.vTotal||0),0);
   const nReg        = dados.length;
+
+  // Média L/ton: diesel total ÷ toneladas transportadas no mesmo período
+  const totalTonFat = faturamentos
+    .filter(f => (!anoSel || f.data.startsWith(anoSel)) && (!mesSel || f.data.slice(5,7)===mesSel))
+    .reduce((s,f) => s + f.ton, 0);
+  const mediaLPorTon = totalTonFat > 0 ? totalDiesel / totalTonFat : 0;
+
   const fmtL = v => v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' L';
 
   document.getElementById('abstCards').innerHTML = [
-    {label:'Total Diesel',     val: fmtL(totalDiesel), color:'var(--accent)', bg:'var(--blue-lt)'},
-    {label:'Total Arla',       val: fmtL(totalArla),   color:'var(--yellow)', bg:'var(--yellow-lt)'},
-    {label:'Custo c/ valores', val: fmt(totalCusto),   color:'var(--red)',    bg:'var(--red-lt)'},
-    {label:'Registros filtro', val: nReg,              color:'var(--muted)',  bg:'#fff'},
+    {label:'Total Diesel',       val: fmtL(totalDiesel),  color:'var(--accent)', bg:'var(--blue-lt)'},
+    {label:'Total Arla',         val: fmtL(totalArla),    color:'var(--yellow)', bg:'var(--yellow-lt)'},
+    {label:'Custo c/ valores',   val: fmt(totalCusto),    color:'var(--red)',    bg:'var(--red-lt)'},
+    {label:'Média Diesel/ton',   val: totalTonFat > 0
+        ? mediaLPorTon.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' L/ton'
+        : '—',                                            color:'var(--green)',  bg:'var(--green-lt)'},
+    {label:'Registros filtro',   val: nReg,               color:'var(--muted)',  bg:'#fff'},
   ].map(c=>`<div style="background:${c.bg};border:1px solid var(--border);border-radius:var(--r);padding:18px 20px">
     <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px">${c.label}</div>
     <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:${c.color}">${c.val}</div>
