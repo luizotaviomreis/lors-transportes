@@ -1398,8 +1398,12 @@ async function loadDataFromFirestore() {
       nextId           = d.nextId           || nextId;
       pagamentosSocios = d.pagamentosSocios || pagamentosSocios;
       faturamentos     = d.faturamentos     || faturamentos;
-      // Também salvar local como cache
+      // Normalizar categorias após carga do Firestore
+      const migrou = aplicarMigracoes();
+      // Salvar cache local (com dados já migrados)
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos }));
+      // Se houve migração, persistir de volta no Firestore
+      if (migrou) saveDataToFirestore();
     }
   } catch(e) {
     console.warn('Firestore indisponível, usando cache local.', e);
@@ -1649,9 +1653,12 @@ async function carregarDoGDrive() {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
     if (!json.lancamentos) throw new Error('Dados inválidos');
-    lancamentos = json.lancamentos;
-    recorrentes = json.recorrentes || [];
-    nextId      = json.nextId || (Math.max(0, ...lancamentos.map(l => l.id)) + 1);
+    lancamentos      = json.lancamentos;
+    recorrentes      = json.recorrentes      || [];
+    pagamentosSocios = json.pagamentosSocios || pagamentosSocios;
+    faturamentos     = json.faturamentos     || faturamentos;
+    nextId           = json.nextId || (Math.max(0, ...lancamentos.map(l => l.id)) + 1);
+    aplicarMigracoes();
     saveData();
     const now = Date.now();
     localStorage.setItem('lors_last_sync', now);
@@ -1943,21 +1950,32 @@ let charts = {};
   if (alterou) saveData();
 })();
 
-// Migração silenciosa: normaliza categorias de receita legadas
-(function migrarCategoriasReceita() {
+// aplicarMigracoes() — normaliza categorias após qualquer carga de dados.
+// Deve ser chamada sempre que lancamentos/pagamentosSocios forem sobrescritos.
+function aplicarMigracoes() {
   let alterou = false;
+
+  // 1) Aportes via Sócios: usa o vínculo direto pagamentosSocios → lancamento
+  pagamentosSocios.forEach(p => {
+    if (p.tipo !== 'aporte' || !p.lancamentoId) return;
+    const l = lancamentos.find(x => x.id === p.lancamentoId);
+    if (l && l.categoria !== 'aporte') { l.categoria = 'aporte'; alterou = true; }
+  });
+
+  // 2) Qualquer receita com "aporte" na descrição → categoria 'aporte'
   lancamentos.forEach(l => {
     if (l.tipo !== 'receita') return;
-    // 'outros' com "Aporte" na descrição → 'aporte'
-    if (l.categoria === 'outros' && l.descricao && l.descricao.toLowerCase().includes('aporte')) {
-      l.categoria = 'aporte'; alterou = true;
-    }
-    // categoria 'receita' com "Aporte" na descrição (aportes socios antigos) → 'aporte'
-    if (l.categoria === 'receita' && l.descricao && l.descricao.toLowerCase().startsWith('aporte')) {
+    if (l.categoria !== 'aporte' && l.descricao && l.descricao.toLowerCase().includes('aporte')) {
       l.categoria = 'aporte'; alterou = true;
     }
   });
-  if (alterou) saveData();
+
+  return alterou;
+}
+
+// Roda na carga inicial (dados do localStorage)
+(function() {
+  if (aplicarMigracoes()) saveData();
 })();
 
 // ═══════════════════════════════════════════════════════════════
@@ -2183,6 +2201,12 @@ function abrirModal(id=null) {
 
 function fecharModal() { document.getElementById('modalOverlay').classList.remove('open'); }
 
+// Atualiza o DFC se estiver visível, sem precisar navegar para outra aba
+function refreshDFCIfVisible() {
+  const pg = document.getElementById('pageDRE');
+  if (pg && pg.style.display !== 'none') renderDFC();
+}
+
 function salvarLancamento(e) {
   e.preventDefault();
   const obj = {
@@ -2200,6 +2224,8 @@ function salvarLancamento(e) {
   fecharModal();
   saveData();
   renderLancamentos();
+  updateKPIs();
+  refreshDFCIfVisible();
   toast('Lançamento salvo com sucesso!', 'success');
 }
 
@@ -2209,6 +2235,8 @@ function excluirLancamento(id) {
   lancamentos = lancamentos.filter(l=>l.id!==id);
   saveData();
   renderLancamentos();
+  updateKPIs();
+  refreshDFCIfVisible();
   toast('Lançamento excluído.', 'success');
 }
 
