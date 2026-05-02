@@ -179,8 +179,34 @@ body {
 .card-value.neu { color: var(--accent); }
 .card-delta { font-size: 11px; color: var(--muted); margin-top: 3px; }
 
+/* ── Section switcher (Receitas / Despesas) ── */
+.sec-switcher {
+  display: flex;
+  gap: 0;
+  border: 2px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+  width: fit-content;
+  margin-bottom: 12px;
+}
+.sec-btn {
+  padding: 9px 28px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  cursor: pointer;
+  border: none;
+  background: var(--paper2);
+  color: var(--muted);
+  transition: background .15s, color .15s;
+  user-select: none;
+}
+.sec-btn.sec-active-receita { background: var(--green); color: #fff; }
+.sec-btn.sec-active-saida   { background: var(--red);   color: #fff; }
+
 /* ── Tabs ── */
-.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; flex-wrap: wrap; }
 .tab {
   padding: 10px 18px;
   cursor: pointer;
@@ -662,18 +688,13 @@ textarea { resize: vertical; min-height: 60px; }
 
     <!-- Páginas -->
     <div id="pageLancamentos">
-      <div class="tabs">
-        <div class="tab active" onclick="filterTab('todos',this)">Todos</div>
-        <div class="tab" onclick="filterTab('receita',this)">Receitas</div>
-        <div class="tab" onclick="filterTab('despvar',this)">Desp. Variável</div>
-        <div class="tab" onclick="filterTab('manutencao',this)">Manutenção</div>
-        <div class="tab" onclick="filterTab('pessoal',this)">Pessoal</div>
-        <div class="tab" onclick="filterTab('administrativo',this)">Administrativo</div>
-        <div class="tab" onclick="filterTab('implemento',this)">Implemento</div>
-        <div class="tab" onclick="filterTab('caminhao',this)">Caminhão</div>
-        <div class="tab" onclick="filterTab('seguro',this)">Seguro</div>
-        <div class="tab" onclick="filterTab('impostos',this)">Impostos</div>
+      <!-- Switcher Receitas / Despesas -->
+      <div class="sec-switcher">
+        <button id="secBtnReceita" class="sec-btn sec-active-receita" onclick="filterSection('receita')">📈 Receitas</button>
+        <button id="secBtnSaida"   class="sec-btn"                    onclick="filterSection('saida')">📉 Despesas</button>
       </div>
+      <!-- Abas de categoria (geradas dinamicamente) -->
+      <div class="tabs" id="sectionTabs"></div>
       <div style="display:flex;gap:10px;margin:12px 0;flex-wrap:wrap;align-items:center">
         <input type="text" id="searchDesc" placeholder="🔍 Buscar por descrição..." oninput="currentSearch=this.value;renderLancamentos()" style="flex:1;min-width:160px;padding:7px 12px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--font-mono);font-size:12px;background:#fff;outline:none">
         <select id="filterMes" onchange="currentMes=this.value;renderLancamentos()" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--font-mono);font-size:12px;background:#fff">
@@ -1982,11 +2003,12 @@ let nextId           = _stored ? _stored.nextId           : 75;
 let pagamentosSocios = _stored ? (_stored.pagamentosSocios||[]) : [];
 let faturamentos     = _stored ? (_stored.faturamentos    ||[]) : [];
 let abastecimentos   = _stored ? (_stored.abastecimentos  ||[]) : [];
-let editingId  = null;
-let currentTab = 'todos';
-let currentMes = '';
-let currentSearch = '';
-let currentPagou  = '';
+let editingId       = null;
+let currentSection  = 'receita'; // 'receita' | 'saida'
+let currentTab      = 'todos';
+let currentMes      = '';
+let currentSearch   = '';
+let currentPagou    = '';
 let charts = {};
 
 // ═══════════════════════════════════════════════════════════════
@@ -2114,30 +2136,79 @@ function updateKPIs() {
 // ═══════════════════════════════════════════════════════════════
 // LANÇAMENTOS
 // ═══════════════════════════════════════════════════════════════
-function filterTab(tab, el) {
+// ── Section switcher ──
+function filterSection(sec) {
+  currentSection = sec;
+  currentTab     = 'todos';
+  currentSearch  = '';
+  currentPagou   = '';
+  const si = document.getElementById('searchDesc');   if (si) si.value = '';
+  const pi = document.getElementById('filterPagou');  if (pi) pi.value = '';
+  updateSectionButtons();
+  renderLancamentos();
+}
+
+function updateSectionButtons() {
+  const rBtn = document.getElementById('secBtnReceita');
+  const sBtn = document.getElementById('secBtnSaida');
+  if (!rBtn || !sBtn) return;
+  rBtn.className = 'sec-btn' + (currentSection === 'receita' ? ' sec-active-receita' : '');
+  sBtn.className = 'sec-btn' + (currentSection === 'saida'   ? ' sec-active-saida'   : '');
+}
+
+function renderSectionTabs() {
+  const container = document.getElementById('sectionTabs');
+  if (!container) return;
+  const tabs = currentSection === 'receita'
+    ? [
+        { id:'todos',    label:'Todos' },
+        { id:'receita',  label:'Faturamento' },
+        { id:'aporte',   label:'Aportes de Capital' },
+        { id:'outros',   label:'Outros Recebimentos' },
+      ]
+    : [
+        { id:'todos',          label:'Todos' },
+        { id:'despvar',        label:'Desp. Variável' },
+        { id:'manutencao',     label:'Manutenção' },
+        { id:'pessoal',        label:'Pessoal' },
+        { id:'administrativo', label:'Administrativo' },
+        { id:'implemento',     label:'Implemento' },
+        { id:'caminhao',       label:'Caminhão' },
+        { id:'seguro',         label:'Seguro' },
+        { id:'impostos',       label:'Impostos' },
+      ];
+  container.innerHTML = tabs.map(t =>
+    `<div class="tab${currentTab === t.id ? ' active' : ''}" onclick="filterTab('${t.id}')">${t.label}</div>`
+  ).join('');
+}
+
+function filterTab(tab) {
   currentTab = tab;
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  el.classList.add('active');
   renderLancamentos();
 }
 
 function renderLancamentos() {
+  updateSectionButtons();
+  renderSectionTabs();
+
   const tbody = document.getElementById('tbodyLancamentos');
   let data = [...lancamentos].sort((a,b)=>b.data.localeCompare(a.data));
 
-  // Popular select de meses (meses disponíveis nos dados)
+  // Filtro primário: seção ativa (Receitas ou Despesas)
+  data = data.filter(l => currentSection === 'receita' ? l.tipo === 'receita' : l.tipo === 'saida');
+
+  // Popular select de meses (apenas meses da seção ativa)
   const selMes = document.getElementById('filterMes');
   if(selMes) {
-    const mesesDisp = [...new Set(lancamentos.map(l=>dataMes(l.data)))].sort().reverse();
+    const mesesDisp = [...new Set(data.map(l=>dataMes(l.data)))].sort().reverse();
     const mesAtual = selMes.value;
     selMes.innerHTML = '<option value="">Todos os meses</option>' +
       mesesDisp.map(m=>`<option value="${m}"${m===mesAtual?' selected':''}>${mes2label(m)}</option>`).join('');
   }
 
-  // Filtro por aba
-  if(currentTab!=='todos') {
-    if(currentTab==='receita') data=data.filter(l=>l.tipo==='receita');
-    else data=data.filter(l=>l.categoria===currentTab);
+  // Filtro por aba de categoria
+  if (currentTab !== 'todos') {
+    data = data.filter(l => l.categoria === currentTab);
   }
   // Filtro por mês
   if(currentMes) data = data.filter(l=>dataMes(l.data)===currentMes);
@@ -2168,53 +2239,56 @@ function renderLancamentos() {
     </tr>`;
   }).join('');
 
-  // Rodapé totais
-  const tRec = data.filter(l=>l.tipo==='receita').reduce((s,l)=>s+l.valor,0);
-  const tSai = data.filter(l=>l.tipo==='saida').reduce((s,l)=>s+l.valor,0);
-  const saldo = tRec - tSai;
+  // Rodapé totais — contextualizado pela seção
+  const total = data.reduce((s,l)=>s+l.valor,0);
+  const isRec = currentSection === 'receita';
   document.getElementById('tfootLancamentos').innerHTML = data.length ? `
     <tr style="background:var(--paper2);border-top:2px solid var(--border)">
       <td colspan="3" style="padding:8px 12px;font-weight:600;font-size:12px">
         Total — ${data.length} lançamento${data.length!==1?'s':''}
       </td>
-      <td style="font-size:11px;color:var(--muted)">
-        ${tRec>0?`<span style="color:var(--green)">+${fmt(tRec)}</span> `:''}${tSai>0?`<span style="color:var(--red)">-${fmt(tSai)}</span>`:''}
+      <td></td>
+      <td class="r" style="font-weight:700;color:${isRec?'var(--green)':'var(--red)'}">
+        ${isRec?'+':'-'}${fmt(total)}
       </td>
-      <td class="r" style="font-weight:700;color:${saldo>=0?'var(--green)':'var(--red)'}">${saldo>=0?'+':''}${fmt(saldo)}</td>
       <td></td>
     </tr>` : '';
 
   // Info filtro
   document.getElementById('filterInfo').textContent = (currentSearch||currentPagou) ? `${data.length} resultado${data.length!==1?'s':''}` : '';
 
-  // Totais por categoria
+  // Totais por categoria (chips clicáveis)
   renderCatSummary(data);
   updateKPIs();
 }
 
 function renderCatSummary(data) {
   const el = document.getElementById('catSummary');
+  if (!el) return;
   const byCat = {};
-  data.forEach(l=>{ if(l.tipo==='saida') byCat[l.categoria]=(byCat[l.categoria]||0)+l.valor; });
+  data.forEach(l=>{ byCat[l.categoria] = (byCat[l.categoria]||0) + l.valor; });
   const cats = Object.entries(byCat).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
-  if(!cats.length){ el.innerHTML=''; return; }
+  if (!cats.length) { el.innerHTML = ''; return; }
+  const isRec = currentSection === 'receita';
+  const cor   = isRec ? 'var(--green)' : 'var(--red)';
   el.innerHTML = `<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px">
     ${cats.map(([cat,val])=>`
       <div onclick="filterTabByName('${cat}')" style="display:flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:5px 10px;cursor:pointer;transition:box-shadow .15s" onmouseover="this.style.boxShadow='var(--shadow)'" onmouseout="this.style.boxShadow='none'">
-        <span class="badge badge-${CAT_BADGE[cat]}">${CAT_LABELS[cat]}</span>
-        <span style="font-weight:600;font-size:12px;color:var(--red)">-${fmt(val)}</span>
+        <span class="badge badge-${CAT_BADGE[cat]||'outros'}">${CAT_LABELS[cat]||cat}</span>
+        <span style="font-weight:600;font-size:12px;color:${cor}">${isRec?'+':'-'}${fmt(val)}</span>
       </div>`).join('')}
   </div>`;
 }
 
 function filterTabByName(cat) {
-  currentTab = cat;
-  currentSearch = '';
-  currentPagou = '';
-  document.getElementById('searchDesc').value = '';
-  document.getElementById('filterPagou').value = '';
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t=>{ if(t.getAttribute('onclick')?.includes(`'${cat}'`)) t.classList.add('active'); });
+  // Determina a seção correta com base na categoria
+  currentSection = CATS_SAIDA.filter(c=>c!=='outros').includes(cat) ? 'saida' : 'receita';
+  currentTab     = cat;
+  currentSearch  = '';
+  currentPagou   = '';
+  const si = document.getElementById('searchDesc');  if(si) si.value = '';
+  const pi = document.getElementById('filterPagou'); if(pi) pi.value = '';
+  updateSectionButtons();
   renderLancamentos();
 }
 
@@ -2261,7 +2335,10 @@ function abrirModal(id=null) {
     document.getElementById('fObs').value = l.obs||'';
     document.getElementById('fQuemPagou').value = l.quemPagou||'';
   } else {
+    // Novo lançamento: pré-selecionar tipo conforme seção ativa
     document.getElementById('fData').value = new Date().toISOString().slice(0,10);
+    document.getElementById('fTipo').value = currentSection === 'receita' ? 'receita' : 'saida';
+    updateCategorias();
   }
   document.getElementById('modalOverlay').classList.add('open');
 }
@@ -2289,6 +2366,9 @@ function salvarLancamento(e) {
   if(editingId) { lancamentos = lancamentos.map(l=>l.id===editingId?obj:l); }
   else { lancamentos.push(obj); }
   fecharModal();
+  // Garantir que a seção exibida bate com o tipo salvo
+  currentSection = obj.tipo === 'receita' ? 'receita' : 'saida';
+  currentTab     = 'todos';
   saveData();
   renderLancamentos();
   updateKPIs();
@@ -2615,6 +2695,7 @@ function toast(msg, type='success') {
   document.getElementById('toastContainer').appendChild(div);
   setTimeout(()=>div.remove(),3000);
 }
+const showToast = toast; // alias
 
 // ═══════════════════════════════════════════════════════════════
 // INIT
