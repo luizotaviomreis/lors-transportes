@@ -3256,16 +3256,20 @@ function doGet(e) {
         else continue;
       }
 
-      var preco = Number(row[2]);
-      var ton   = Number(row[3]);
-      var total = Number(row[4]);
+      // Colunas (0-based): [0]=nº, [1]=Data, [2]=Caminhão, [3]=Preço, [4]=Toneladas, [5]=Total
+      var caminhaoRaw = String(row[2] || '').trim();
+      var caminhaoId  = caminhaoRaw.toLowerCase().replace(/[^a-z0-9]/g, '') || 'lors01';
+      var preco = Number(row[3]);
+      var ton   = Number(row[4]);
+      var total = Number(row[5]);
       if (!dateStr || isNaN(ton) || ton === 0 || isNaN(preco) || preco === 0) continue;
 
       viagens.push({
-        data:  dateStr,
-        ton:   ton,
-        preco: preco,
-        total: (isNaN(total) || total === 0) ? Math.round(ton * preco * 100) / 100 : total
+        data:    dateStr,
+        caminhao: caminhaoId,
+        ton:     ton,
+        preco:   preco,
+        total:   (isNaN(total) || total === 0) ? Math.round(ton * preco * 100) / 100 : total
       });
     }
 
@@ -3294,15 +3298,18 @@ function doGet(e) {
             if (pA.length === 3) dateStrA = pA[2] + '-' + ('0'+pA[1]).slice(-2) + '-' + ('0'+pA[0]).slice(-2);
             else continue;
           }
-          var fornA  = String(rowA[2] || '').trim();
-          var prodA  = String(rowA[3] || '').trim();
-          var qtdA   = Number(rowA[4]);
-          var vUnitA = rowA[5] ? Number(rowA[5]) : null;
-          var vTotA  = rowA[6] ? Number(rowA[6]) : null;
-          var kmA    = rowA[7] ? Number(rowA[7]) : null;
+          // Colunas (0-based): [0]=nº, [1]=Data, [2]=Fornecedor, [3]=Caminhão, [4]=Produto, [5]=Qtd, [6]=VUnit, [7]=VTotal, [8]=Km
+          var fornA       = String(rowA[2] || '').trim();
+          var caminhaoRawA = String(rowA[3] || '').trim();
+          var caminhaoIdA  = caminhaoRawA.toLowerCase().replace(/[^a-z0-9]/g, '') || 'lors01';
+          var prodA  = String(rowA[4] || '').trim();
+          var qtdA   = Number(rowA[5]);
+          var vUnitA = rowA[6] ? Number(rowA[6]) : null;
+          var vTotA  = rowA[7] ? Number(rowA[7]) : null;
+          var kmA    = rowA[8] ? Number(rowA[8]) : null;
           if (!dateStrA || !prodA || isNaN(qtdA) || qtdA === 0) continue;
           abastecimentos.push({
-            data: dateStrA, forn: fornA, prod: prodA,
+            data: dateStrA, forn: fornA, caminhao: caminhaoIdA, prod: prodA,
             qtd: qtdA, vUnit: vUnitA, vTotal: vTotA, km: kmA
           });
         }
@@ -3393,8 +3400,12 @@ async function sincronizarFaturamentoDrive(silent = false) {
     let adicionados = 0;
     viagens.forEach(v => {
       if (!datasExistentes.has(v.data)) {
-        faturamentos.push({ id: nextId++, data: v.data, ton: v.ton, preco: v.preco, total: v.total });
+        faturamentos.push({ id: nextId++, data: v.data, caminhao: v.caminhao || 'lors01', ton: v.ton, preco: v.preco, total: v.total });
         adicionados++;
+      } else {
+        // Atualizar caminhao em registros já existentes sem esse campo
+        const existente = faturamentos.find(x => x.data === v.data);
+        if (existente && !existente.caminhao && v.caminhao) existente.caminhao = v.caminhao;
       }
     });
     if (adicionados > 0) faturamentos.sort((a,b) => a.data.localeCompare(b.data));
@@ -3409,11 +3420,12 @@ async function sincronizarFaturamentoDrive(silent = false) {
         abastecimentos.push({ ...a });
         abstAdicionados++;
       } else {
-        // Atualiza km se veio preenchido do Excel
+        // Atualiza km e caminhao se vieram preenchidos do Excel
         if (a.km != null && existente.km !== a.km) {
           existente.km = a.km;
           abstAtualizados++;
         }
+        if (a.caminhao && !existente.caminhao) existente.caminhao = a.caminhao;
       }
     });
     if (abstAdicionados > 0) abastecimentos.sort((a,b) => a.data.localeCompare(b.data) || a.prod.localeCompare(b.prod));
@@ -3753,62 +3765,62 @@ function limparFiltrosFat() {
 // IMPORTAÇÃO DE FATURAMENTO HISTÓRICO
 // ═══════════════════════════════════════════════════════════════
 const FATURAMENTO_HISTORICO = [
-  {data:'2026-02-14',ton:55.46,preco:140,total:7764.40},
-  {data:'2026-02-16',ton:54.30,preco:140,total:7602.00},
-  {data:'2026-02-17',ton:55.28,preco:140,total:7739.20},
-  {data:'2026-02-18',ton:54.18,preco:140,total:7585.20},
-  {data:'2026-02-19',ton:54.68,preco:140,total:7655.20},
-  {data:'2026-02-20',ton:54.60,preco:140,total:7644.00},
-  {data:'2026-02-23',ton:54.84,preco:140,total:7677.60},
-  {data:'2026-02-24',ton:54.62,preco:140,total:7646.80},
-  {data:'2026-02-25',ton:54.98,preco:140,total:7697.20},
-  {data:'2026-02-26',ton:54.54,preco:140,total:7635.60},
-  {data:'2026-02-27',ton:55.02,preco:140,total:7702.80},
-  {data:'2026-03-02',ton:55.18,preco:140,total:7725.20},
-  {data:'2026-03-03',ton:54.56,preco:140,total:7638.40},
-  {data:'2026-03-04',ton:55.24,preco:140,total:7733.60},
-  {data:'2026-03-05',ton:54.54,preco:140,total:7635.60},
-  {data:'2026-03-06',ton:54.56,preco:140,total:7638.40},
-  {data:'2026-03-07',ton:54.54,preco:140,total:7635.60},
-  {data:'2026-03-09',ton:53.82,preco:140,total:7534.80},
-  {data:'2026-03-10',ton:55.44,preco:140,total:7761.60},
-  {data:'2026-03-11',ton:54.12,preco:140,total:7576.80},
-  {data:'2026-03-15',ton:53.74,preco:150,total:8061.00},
-  {data:'2026-03-16',ton:55.10,preco:150,total:8265.00},
-  {data:'2026-03-17',ton:53.48,preco:150,total:8022.00},
-  {data:'2026-03-18',ton:54.70,preco:150,total:8205.00},
-  {data:'2026-03-19',ton:54.70,preco:150,total:8205.00},
-  {data:'2026-03-20',ton:53.66,preco:150,total:8049.00},
-  {data:'2026-03-21',ton:54.50,preco:150,total:8175.00},
-  {data:'2026-03-23',ton:54.24,preco:150,total:8136.00},
-  {data:'2026-03-24',ton:54.06,preco:150,total:8109.00},
-  {data:'2026-03-25',ton:53.82,preco:150,total:8073.00},
-  {data:'2026-03-26',ton:54.52,preco:150,total:8178.00},
-  {data:'2026-03-27',ton:54.92,preco:150,total:8238.00},
-  {data:'2026-03-28',ton:53.40,preco:150,total:8010.00},
-  {data:'2026-03-30',ton:55.18,preco:150,total:8277.00},
-  {data:'2026-03-31',ton:48.92,preco:150,total:7338.00},
-  {data:'2026-04-01',ton:52.52,preco:150,total:7878.00},
-  {data:'2026-04-02',ton:52.86,preco:170,total:8986.20},
-  {data:'2026-04-08',ton:55.32,preco:170,total:9404.40},
-  {data:'2026-04-09',ton:53.52,preco:170,total:9098.40},
-  {data:'2026-04-10',ton:54.84,preco:170,total:9322.80},
-  {data:'2026-04-11',ton:53.08,preco:170,total:9023.60},
-  {data:'2026-04-13',ton:53.88,preco:170,total:9159.60},
-  {data:'2026-04-14',ton:54.38,preco:170,total:9244.60},
-  {data:'2026-04-18',ton:52.58,preco:170,total:8938.60},
-  {data:'2026-04-20',ton:54.74,preco:170,total:9305.80},
-  {data:'2026-04-21',ton:53.98,preco:170,total:9176.60},
-  {data:'2026-04-22',ton:54.98,preco:170,total:9346.60},
-  {data:'2026-04-23',ton:54.70,preco:170,total:9299.00},
-  {data:'2026-04-24',ton:51.58,preco:170,total:8768.60},
-  {data:'2026-04-25',ton:54.52,preco:170,total:9268.40},
-  {data:'2026-04-27',ton:54.12,preco:170,total:9200.40},
-  {data:'2026-04-28',ton:51.80,preco:170,total:8806.00},
-  {data:'2026-04-29',ton:54.74,preco:170,total:9305.80},
-  {data:'2026-04-30',ton:51.40,preco:170,total:8738.00},
-  {data:'2026-05-01',ton:51.66,preco:170,total:8782.20},
-  {data:'2026-05-02',ton:54.68,preco:170,total:9295.60},
+  {data:'2026-02-14',caminhao:'lors01',ton:55.46,preco:140,total:7764.40},
+  {data:'2026-02-16',caminhao:'lors01',ton:54.30,preco:140,total:7602.00},
+  {data:'2026-02-17',caminhao:'lors01',ton:55.28,preco:140,total:7739.20},
+  {data:'2026-02-18',caminhao:'lors01',ton:54.18,preco:140,total:7585.20},
+  {data:'2026-02-19',caminhao:'lors01',ton:54.68,preco:140,total:7655.20},
+  {data:'2026-02-20',caminhao:'lors01',ton:54.60,preco:140,total:7644.00},
+  {data:'2026-02-23',caminhao:'lors01',ton:54.84,preco:140,total:7677.60},
+  {data:'2026-02-24',caminhao:'lors01',ton:54.62,preco:140,total:7646.80},
+  {data:'2026-02-25',caminhao:'lors01',ton:54.98,preco:140,total:7697.20},
+  {data:'2026-02-26',caminhao:'lors01',ton:54.54,preco:140,total:7635.60},
+  {data:'2026-02-27',caminhao:'lors01',ton:55.02,preco:140,total:7702.80},
+  {data:'2026-03-02',caminhao:'lors01',ton:55.18,preco:140,total:7725.20},
+  {data:'2026-03-03',caminhao:'lors01',ton:54.56,preco:140,total:7638.40},
+  {data:'2026-03-04',caminhao:'lors01',ton:55.24,preco:140,total:7733.60},
+  {data:'2026-03-05',caminhao:'lors01',ton:54.54,preco:140,total:7635.60},
+  {data:'2026-03-06',caminhao:'lors01',ton:54.56,preco:140,total:7638.40},
+  {data:'2026-03-07',caminhao:'lors01',ton:54.54,preco:140,total:7635.60},
+  {data:'2026-03-09',caminhao:'lors01',ton:53.82,preco:140,total:7534.80},
+  {data:'2026-03-10',caminhao:'lors01',ton:55.44,preco:140,total:7761.60},
+  {data:'2026-03-11',caminhao:'lors01',ton:54.12,preco:140,total:7576.80},
+  {data:'2026-03-15',caminhao:'lors01',ton:53.74,preco:150,total:8061.00},
+  {data:'2026-03-16',caminhao:'lors01',ton:55.10,preco:150,total:8265.00},
+  {data:'2026-03-17',caminhao:'lors01',ton:53.48,preco:150,total:8022.00},
+  {data:'2026-03-18',caminhao:'lors01',ton:54.70,preco:150,total:8205.00},
+  {data:'2026-03-19',caminhao:'lors01',ton:54.70,preco:150,total:8205.00},
+  {data:'2026-03-20',caminhao:'lors01',ton:53.66,preco:150,total:8049.00},
+  {data:'2026-03-21',caminhao:'lors01',ton:54.50,preco:150,total:8175.00},
+  {data:'2026-03-23',caminhao:'lors01',ton:54.24,preco:150,total:8136.00},
+  {data:'2026-03-24',caminhao:'lors01',ton:54.06,preco:150,total:8109.00},
+  {data:'2026-03-25',caminhao:'lors01',ton:53.82,preco:150,total:8073.00},
+  {data:'2026-03-26',caminhao:'lors01',ton:54.52,preco:150,total:8178.00},
+  {data:'2026-03-27',caminhao:'lors01',ton:54.92,preco:150,total:8238.00},
+  {data:'2026-03-28',caminhao:'lors01',ton:53.40,preco:150,total:8010.00},
+  {data:'2026-03-30',caminhao:'lors01',ton:55.18,preco:150,total:8277.00},
+  {data:'2026-03-31',caminhao:'lors01',ton:48.92,preco:150,total:7338.00},
+  {data:'2026-04-01',caminhao:'lors01',ton:52.52,preco:150,total:7878.00},
+  {data:'2026-04-02',caminhao:'lors01',ton:52.86,preco:170,total:8986.20},
+  {data:'2026-04-08',caminhao:'lors01',ton:55.32,preco:170,total:9404.40},
+  {data:'2026-04-09',caminhao:'lors01',ton:53.52,preco:170,total:9098.40},
+  {data:'2026-04-10',caminhao:'lors01',ton:54.84,preco:170,total:9322.80},
+  {data:'2026-04-11',caminhao:'lors01',ton:53.08,preco:170,total:9023.60},
+  {data:'2026-04-13',caminhao:'lors01',ton:53.88,preco:170,total:9159.60},
+  {data:'2026-04-14',caminhao:'lors01',ton:54.38,preco:170,total:9244.60},
+  {data:'2026-04-18',caminhao:'lors01',ton:52.58,preco:170,total:8938.60},
+  {data:'2026-04-20',caminhao:'lors01',ton:54.74,preco:170,total:9305.80},
+  {data:'2026-04-21',caminhao:'lors01',ton:53.98,preco:170,total:9176.60},
+  {data:'2026-04-22',caminhao:'lors01',ton:54.98,preco:170,total:9346.60},
+  {data:'2026-04-23',caminhao:'lors01',ton:54.70,preco:170,total:9299.00},
+  {data:'2026-04-24',caminhao:'lors01',ton:51.58,preco:170,total:8768.60},
+  {data:'2026-04-25',caminhao:'lors01',ton:54.52,preco:170,total:9268.40},
+  {data:'2026-04-27',caminhao:'lors01',ton:54.12,preco:170,total:9200.40},
+  {data:'2026-04-28',caminhao:'lors01',ton:51.80,preco:170,total:8806.00},
+  {data:'2026-04-29',caminhao:'lors01',ton:54.74,preco:170,total:9305.80},
+  {data:'2026-04-30',caminhao:'lors01',ton:51.40,preco:170,total:8738.00},
+  {data:'2026-05-01',caminhao:'lors01',ton:51.66,preco:170,total:8782.20},
+  {data:'2026-05-02',caminhao:'lors01',ton:54.68,preco:170,total:9295.60},
 ];
 
 async function importarFaturamentoHistorico() {
@@ -3827,8 +3839,12 @@ async function importarFaturamentoHistorico() {
   let adicionados = 0;
   FATURAMENTO_HISTORICO.forEach(f => {
     if (!datasExistentes.has(f.data)) {
-      faturamentos.push({ id: nextId++, data: f.data, ton: f.ton, preco: f.preco, total: f.total });
+      faturamentos.push({ id: nextId++, data: f.data, caminhao: f.caminhao || 'lors01', ton: f.ton, preco: f.preco, total: f.total });
       adicionados++;
+    } else {
+      // Atualizar caminhao em registros já existentes sem esse campo
+      const existente = faturamentos.find(x => x.data === f.data);
+      if (existente && !existente.caminhao) { existente.caminhao = f.caminhao || 'lors01'; }
     }
   });
   faturamentos.sort((a,b) => a.data.localeCompare(b.data));
@@ -3873,88 +3889,88 @@ let abstFiltro = 'todos';
 let abstSort = { col:'data', asc:true };
 
 const ABASTECIMENTO_HISTORICO = [
-  {data:'2026-02-12',forn:'Mallon',prod:'Diesel',qtd:431.56,vUnit:5.79,vTotal:2498.73,km:null},
-  {data:'2026-02-12',forn:'Mallon',prod:'Arla',qtd:53.00,vUnit:3.45,vTotal:182.85,km:null},
-  {data:'2026-02-15',forn:'Dunapetrol',prod:'Diesel',qtd:424.45,vUnit:5.89,vTotal:2500.00,km:null},
-  {data:'2026-02-16',forn:'Hresko',prod:'Diesel',qtd:400.00,vUnit:5.29,vTotal:2116.00,km:null},
-  {data:'2026-02-17',forn:'Hresko',prod:'Diesel',qtd:376.00,vUnit:5.29,vTotal:1989.04,km:null},
-  {data:'2026-02-17',forn:'Hresko',prod:'Arla',qtd:63.01,vUnit:2.99,vTotal:188.39,km:null},
-  {data:'2026-02-18',forn:'Hresko',prod:'Diesel',qtd:403.00,vUnit:5.29,vTotal:2131.87,km:null},
-  {data:'2026-02-19',forn:'Hresko',prod:'Diesel',qtd:376.00,vUnit:5.29,vTotal:1989.04,km:null},
-  {data:'2026-02-19',forn:'Hresko',prod:'Arla',qtd:54.04,vUnit:2.99,vTotal:161.57,km:null},
-  {data:'2026-02-20',forn:'Hresko',prod:'Diesel',qtd:376.00,vUnit:5.29,vTotal:1989.04,km:null},
-  {data:'2026-02-23',forn:'Hresko',prod:'Arla',qtd:45.06,vUnit:2.99,vTotal:134.72,km:null},
-  {data:'2026-02-23',forn:'Hresko',prod:'Diesel',qtd:399.00,vUnit:5.39,vTotal:2150.61,km:null},
-  {data:'2026-02-24',forn:'Hresko',prod:'Diesel',qtd:375.00,vUnit:5.39,vTotal:2021.25,km:null},
-  {data:'2026-02-25',forn:'Hresko',prod:'Arla',qtd:48.09,vUnit:2.99,vTotal:143.78,km:null},
-  {data:'2026-02-25',forn:'Hresko',prod:'Diesel',qtd:403.00,vUnit:5.39,vTotal:2172.17,km:null},
-  {data:'2026-02-26',forn:'Hresko',prod:'Diesel',qtd:376.00,vUnit:5.39,vTotal:2026.64,km:null},
-  {data:'2026-02-27',forn:'Hresko',prod:'Arla',qtd:47.68,vUnit:2.99,vTotal:142.55,km:null},
-  {data:'2026-02-27',forn:'Hresko',prod:'Diesel',qtd:386.00,vUnit:5.39,vTotal:2080.54,km:null},
-  {data:'2026-03-02',forn:'Hresko',prod:'Diesel',qtd:406.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-03',forn:'Hresko',prod:'Diesel',qtd:396.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-03',forn:'Hresko',prod:'Arla',qtd:48.77,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-04',forn:'Hresko',prod:'Diesel',qtd:392.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-05',forn:'Hresko',prod:'Arla',qtd:45.68,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-05',forn:'Hresko',prod:'Diesel',qtd:396.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-06',forn:'Hresko',prod:'Diesel',qtd:395.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-07',forn:'Hresko',prod:'Arla',qtd:41.03,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-07',forn:'Hresko',prod:'Diesel',qtd:391.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-09',forn:'Hresko',prod:'Diesel',qtd:416.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-10',forn:'Hresko',prod:'Arla',qtd:43.02,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-10',forn:'Hresko',prod:'Diesel',qtd:348.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-11',forn:'Hresko',prod:'Diesel',qtd:427.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-13',forn:'Hresko',prod:'Diesel',qtd:385.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-13',forn:'Hresko',prod:'Arla',qtd:40.05,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-16',forn:'Hresko',prod:'Diesel',qtd:257.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-17',forn:'Hresko',prod:'Arla',qtd:50.55,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-17',forn:'Hresko',prod:'Diesel',qtd:565.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-18',forn:'Hresko',prod:'Diesel',qtd:403.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-19',forn:'Hresko',prod:'Arla',qtd:40.01,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-19',forn:'Hresko',prod:'Diesel',qtd:440.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-20',forn:'Hresko',prod:'Diesel',qtd:401.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-21',forn:'Hresko',prod:'Diesel',qtd:405.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-21',forn:'Hresko',prod:'Arla',qtd:43.31,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-23',forn:'Hresko',prod:'Diesel',qtd:470.09,vUnit:7.25,vTotal:3408.15,km:null},
-  {data:'2026-03-24',forn:'Hresko',prod:'Diesel',qtd:438.01,vUnit:7.25,vTotal:3175.57,km:null},
-  {data:'2026-03-25',forn:'Hresko',prod:'Diesel',qtd:435.03,vUnit:7.25,vTotal:3153.97,km:null},
-  {data:'2026-03-25',forn:'Hresko',prod:'Arla',qtd:61.56,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-26',forn:'Hresko',prod:'Diesel',qtd:387.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-27',forn:'Hresko',prod:'Diesel',qtd:242.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-28',forn:'Hresko',prod:'Diesel',qtd:553.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-28',forn:'Hresko',prod:'Arla',qtd:59.52,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-30',forn:'Hresko',prod:'Diesel',qtd:233.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-31',forn:'Hresko',prod:'Diesel',qtd:570.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-03-31',forn:'Hresko',prod:'Arla',qtd:42.54,vUnit:null,vTotal:null,km:null},
-  {data:'2026-04-01',forn:'Hresko',prod:'Diesel',qtd:388.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-04-02',forn:'Hresko',prod:'Arla',qtd:40.01,vUnit:null,vTotal:null,km:null},
-  {data:'2026-04-02',forn:'Hresko',prod:'Diesel',qtd:400.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-04-06',forn:'Hresko',prod:'Diesel',qtd:379.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-04-09',forn:'Hresko',prod:'Diesel',qtd:402.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-04-10',forn:'Hresko',prod:'Diesel',qtd:430.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-04-10',forn:'Hresko',prod:'Arla',qtd:60.52,vUnit:null,vTotal:null,km:null},
-  {data:'2026-04-11',forn:'Hresko',prod:'Diesel',qtd:385.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-04-13',forn:'Hresko',prod:'Arla',qtd:39.92,vUnit:null,vTotal:null,km:null},
-  {data:'2026-04-13',forn:'Hresko',prod:'Diesel',qtd:397.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-04-14',forn:'Hresko',prod:'Diesel',qtd:405.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-04-15',forn:'Hresko',prod:'Diesel',qtd:405.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-04-20',forn:'Hresko',prod:'Arla',qtd:63.32,vUnit:null,vTotal:null,km:null},
-  {data:'2026-04-20',forn:'Hresko',prod:'Diesel',qtd:411.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-04-21',forn:'Hresko',prod:'Diesel',qtd:396.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-04-22',forn:'Hresko',prod:'Arla',qtd:40.03,vUnit:null,vTotal:null,km:null},
-  {data:'2026-04-22',forn:'Hresko',prod:'Diesel',qtd:270.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-04-23',forn:'Hresko',prod:'Diesel',qtd:539.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-04-24',forn:'Hresko',prod:'Arla',qtd:40.49,vUnit:null,vTotal:null,km:null},
-  {data:'2026-04-24',forn:'Hresko',prod:'Diesel',qtd:387.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-04-25',forn:'Hresko',prod:'Diesel',qtd:395.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-04-27',forn:'Hresko',prod:'Diesel',qtd:411.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-04-28',forn:'Hresko',prod:'Arla',qtd:56.04,vUnit:null,vTotal:null,km:null},
-  {data:'2026-04-28',forn:'Hresko',prod:'Diesel',qtd:402.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-04-29',forn:'Hresko',prod:'Diesel',qtd:270.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-04-30',forn:'Hresko',prod:'Diesel',qtd:537.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-05-01',forn:'Hresko',prod:'Diesel',qtd:405.00,vUnit:null,vTotal:null,km:null},
-  {data:'2026-05-01',forn:'Hresko',prod:'Arla',qtd:64.20,vUnit:null,vTotal:null,km:null},
-  {data:'2026-05-02',forn:'Hresko',prod:'Arla',qtd:400.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-02-12',forn:'Mallon',caminhao:'lors01',prod:'Diesel',qtd:431.56,vUnit:5.79,vTotal:2498.73,km:null},
+  {data:'2026-02-12',forn:'Mallon',caminhao:'lors01',prod:'Arla',qtd:53.00,vUnit:3.45,vTotal:182.85,km:null},
+  {data:'2026-02-15',forn:'Dunapetrol',caminhao:'lors01',prod:'Diesel',qtd:424.45,vUnit:5.89,vTotal:2500.00,km:null},
+  {data:'2026-02-16',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:400.00,vUnit:5.29,vTotal:2116.00,km:null},
+  {data:'2026-02-17',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:376.00,vUnit:5.29,vTotal:1989.04,km:null},
+  {data:'2026-02-17',forn:'Hresko',caminhao:'lors01',prod:'Arla',qtd:63.01,vUnit:2.99,vTotal:188.39,km:null},
+  {data:'2026-02-18',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:403.00,vUnit:5.29,vTotal:2131.87,km:null},
+  {data:'2026-02-19',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:376.00,vUnit:5.29,vTotal:1989.04,km:null},
+  {data:'2026-02-19',forn:'Hresko',caminhao:'lors01',prod:'Arla',qtd:54.04,vUnit:2.99,vTotal:161.57,km:null},
+  {data:'2026-02-20',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:376.00,vUnit:5.29,vTotal:1989.04,km:null},
+  {data:'2026-02-23',forn:'Hresko',caminhao:'lors01',prod:'Arla',qtd:45.06,vUnit:2.99,vTotal:134.72,km:null},
+  {data:'2026-02-23',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:399.00,vUnit:5.39,vTotal:2150.61,km:null},
+  {data:'2026-02-24',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:375.00,vUnit:5.39,vTotal:2021.25,km:null},
+  {data:'2026-02-25',forn:'Hresko',caminhao:'lors01',prod:'Arla',qtd:48.09,vUnit:2.99,vTotal:143.78,km:null},
+  {data:'2026-02-25',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:403.00,vUnit:5.39,vTotal:2172.17,km:null},
+  {data:'2026-02-26',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:376.00,vUnit:5.39,vTotal:2026.64,km:null},
+  {data:'2026-02-27',forn:'Hresko',caminhao:'lors01',prod:'Arla',qtd:47.68,vUnit:2.99,vTotal:142.55,km:null},
+  {data:'2026-02-27',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:386.00,vUnit:5.39,vTotal:2080.54,km:null},
+  {data:'2026-03-02',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:406.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-03',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:396.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-03',forn:'Hresko',caminhao:'lors01',prod:'Arla',qtd:48.77,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-04',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:392.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-05',forn:'Hresko',caminhao:'lors01',prod:'Arla',qtd:45.68,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-05',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:396.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-06',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:395.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-07',forn:'Hresko',caminhao:'lors01',prod:'Arla',qtd:41.03,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-07',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:391.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-09',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:416.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-10',forn:'Hresko',caminhao:'lors01',prod:'Arla',qtd:43.02,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-10',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:348.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-11',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:427.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-13',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:385.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-13',forn:'Hresko',caminhao:'lors01',prod:'Arla',qtd:40.05,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-16',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:257.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-17',forn:'Hresko',caminhao:'lors01',prod:'Arla',qtd:50.55,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-17',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:565.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-18',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:403.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-19',forn:'Hresko',caminhao:'lors01',prod:'Arla',qtd:40.01,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-19',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:440.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-20',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:401.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-21',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:405.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-21',forn:'Hresko',caminhao:'lors01',prod:'Arla',qtd:43.31,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-23',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:470.09,vUnit:7.25,vTotal:3408.15,km:null},
+  {data:'2026-03-24',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:438.01,vUnit:7.25,vTotal:3175.57,km:null},
+  {data:'2026-03-25',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:435.03,vUnit:7.25,vTotal:3153.97,km:null},
+  {data:'2026-03-25',forn:'Hresko',caminhao:'lors01',prod:'Arla',qtd:61.56,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-26',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:387.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-27',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:242.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-28',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:553.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-28',forn:'Hresko',caminhao:'lors01',prod:'Arla',qtd:59.52,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-30',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:233.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-31',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:570.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-31',forn:'Hresko',caminhao:'lors01',prod:'Arla',qtd:42.54,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-01',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:388.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-02',forn:'Hresko',caminhao:'lors01',prod:'Arla',qtd:40.01,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-02',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:400.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-06',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:379.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-09',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:402.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-10',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:430.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-10',forn:'Hresko',caminhao:'lors01',prod:'Arla',qtd:60.52,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-11',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:385.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-13',forn:'Hresko',caminhao:'lors01',prod:'Arla',qtd:39.92,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-13',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:397.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-14',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:405.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-15',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:405.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-20',forn:'Hresko',caminhao:'lors01',prod:'Arla',qtd:63.32,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-20',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:411.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-21',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:396.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-22',forn:'Hresko',caminhao:'lors01',prod:'Arla',qtd:40.03,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-22',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:270.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-23',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:539.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-24',forn:'Hresko',caminhao:'lors01',prod:'Arla',qtd:40.49,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-24',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:387.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-25',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:395.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-27',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:411.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-28',forn:'Hresko',caminhao:'lors01',prod:'Arla',qtd:56.04,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-28',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:402.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-29',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:270.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-30',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:537.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-05-01',forn:'Hresko',caminhao:'lors01',prod:'Diesel',qtd:405.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-05-01',forn:'Hresko',caminhao:'lors01',prod:'Arla',qtd:64.20,vUnit:null,vTotal:null,km:null},
+  {data:'2026-05-02',forn:'Hresko',caminhao:'lors01',prod:'Arla',qtd:400.00,vUnit:null,vTotal:null,km:null},
 ];
 
 function setAbstFiltro(f) {
