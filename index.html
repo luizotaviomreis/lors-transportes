@@ -1159,6 +1159,18 @@ textarea { resize: vertical; min-height: 60px; }
 </div>
 </div>
 
+<!-- ── Modal Histórico de Lançamento ── -->
+<div class="modal-overlay" id="modalHistoricoOverlay" onclick="if(event.target===this)fecharHistorico()">
+<div class="modal" style="max-width:560px;max-height:80vh;display:flex;flex-direction:column">
+  <div class="modal-title" style="flex-shrink:0">
+    <span>🕐 Histórico de Alterações</span>
+    <button class="modal-close" onclick="fecharHistorico()">✕</button>
+  </div>
+  <div style="padding:0 24px 8px;font-size:12px;color:var(--muted);flex-shrink:0" id="histSubtitle"></div>
+  <div id="histBody" style="flex:1;overflow-y:auto;padding:0 24px 24px"></div>
+</div>
+</div>
+
 <!-- ── Modal Caminhão ── -->
 <div class="modal-overlay" id="modalCaminhaoOverlay">
 <div class="modal">
@@ -2365,6 +2377,7 @@ function renderLancamentos() {
         <button class="btn btn-sm" onclick="editarLancamento(${l.id})" title="Editar">✎</button>
         <button class="btn btn-sm" onclick="duplicarLancamento(${l.id})" title="Duplicar lançamento" style="color:var(--accent)">⊕</button>
         <button class="btn btn-sm btn-danger" onclick="excluirLancamento(${l.id})" title="Excluir">✕</button>
+        ${currentUser?.email === ADMIN_EMAIL && l._hist?.length ? `<button class="btn btn-sm" onclick="abrirHistoricoLancamento(${l.id})" title="${l._hist.length} alteração${l._hist.length!==1?'ões':''}" style="color:var(--muted);font-size:10px">🕐${l._hist.length}</button>` : ''}
       </td>
     </tr>`;
   }).join('');
@@ -2550,8 +2563,31 @@ function salvarLancamento(e) {
     }
   }
 
-  if(editingId) { lancamentos = lancamentos.map(l=>l.id===editingId?obj:l); }
-  else { lancamentos.push(obj); }
+  if (editingId) {
+    const antigo = lancamentos.find(l => l.id === editingId);
+    if (antigo && currentUser) {
+      // Campos rastreados no histórico
+      const CAMPOS_HIST = ['data','descricao','tipo','categoria','valor','obs','quemPagou','caminhao'];
+      const changes = {};
+      CAMPOS_HIST.forEach(c => {
+        const de   = antigo[c] ?? null;
+        const para = obj[c]   ?? null;
+        if (String(de ?? '') !== String(para ?? '')) changes[c] = { de, para };
+      });
+      // Preservar histórico existente + adicionar nova entrada se houver diferença
+      obj._hist = antigo._hist || [];
+      if (Object.keys(changes).length > 0) {
+        obj._hist = [...obj._hist, {
+          ts:      new Date().toISOString(),
+          user:    currentUser.email,
+          changes
+        }];
+      }
+    }
+    lancamentos = lancamentos.map(l => l.id === editingId ? obj : l);
+  } else {
+    lancamentos.push(obj);
+  }
   fecharModal();
   // Garantir que a seção exibida bate com o tipo salvo
   currentSection = obj.tipo === 'receita' ? 'receita' : 'saida';
@@ -2564,6 +2600,65 @@ function salvarLancamento(e) {
 }
 
 function editarLancamento(id) { abrirModal(id); }
+
+// ── Histórico de alterações (visível apenas para ADMIN) ──────────
+const _HIST_LABELS = {
+  data:'Data', descricao:'Descrição', tipo:'Tipo', categoria:'Categoria',
+  valor:'Valor', obs:'Observação', quemPagou:'Quem Pagou', caminhao:'Caminhão'
+};
+
+function abrirHistoricoLancamento(id) {
+  if (!currentUser || currentUser.email !== ADMIN_EMAIL) return;
+  const l = lancamentos.find(x => x.id === id);
+  if (!l) return;
+
+  document.getElementById('histSubtitle').textContent =
+    `#${l.id} · ${l.descricao} · ${l.data.split('-').reverse().join('/')}`;
+
+  const hist = [...(l._hist || [])].reverse(); // mais recente primeiro
+
+  if (hist.length === 0) {
+    document.getElementById('histBody').innerHTML =
+      '<div style="text-align:center;color:var(--muted);padding:32px">Nenhuma alteração registrada.</div>';
+  } else {
+    document.getElementById('histBody').innerHTML = hist.map((h, i) => {
+      const dt  = new Date(h.ts);
+      const dtFmt = dt.toLocaleDateString('pt-BR') + ' ' +
+                    dt.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+      const camposHtml = Object.entries(h.changes).map(([campo, {de, para}]) => {
+        const label   = _HIST_LABELS[campo] || campo;
+        const fmtVal  = (v, c) => {
+          if (v === null || v === undefined || v === '') return '<em style="color:var(--muted)">vazio</em>';
+          if (c === 'valor') return fmt(Number(v));
+          if (c === 'tipo') return v === 'receita' ? 'Receita' : 'Despesa';
+          if (c === 'categoria') return CAT_LABELS[v] || v;
+          if (c === 'caminhao') return caminhaoNome(v);
+          return String(v);
+        };
+        return `<div style="display:flex;align-items:baseline;gap:6px;padding:4px 0;border-bottom:1px dashed var(--border)">
+          <span style="font-size:10px;font-weight:600;color:var(--muted);min-width:80px;flex-shrink:0">${label}</span>
+          <span style="font-size:11px;color:var(--red);text-decoration:line-through">${fmtVal(de, campo)}</span>
+          <span style="font-size:11px;color:var(--muted)">→</span>
+          <span style="font-size:11px;color:var(--green);font-weight:600">${fmtVal(para, campo)}</span>
+        </div>`;
+      }).join('');
+
+      return `<div style="border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:12px;${i===0?'border-color:var(--accent);background:var(--blue-lt)':'background:#fff'}">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:11px;font-weight:700;color:${i===0?'var(--accent)':'var(--ink)'}">🕐 ${dtFmt}</div>
+          <div style="font-size:10px;color:var(--muted)">${h.user}</div>
+        </div>
+        <div>${camposHtml}</div>
+      </div>`;
+    }).join('');
+  }
+
+  document.getElementById('modalHistoricoOverlay').classList.add('open');
+}
+
+function fecharHistorico() {
+  document.getElementById('modalHistoricoOverlay').classList.remove('open');
+}
 
 function duplicarLancamento(id) {
   const orig = lancamentos.find(x => x.id === id);
