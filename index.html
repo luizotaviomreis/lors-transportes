@@ -618,6 +618,9 @@ textarea { resize: vertical; min-height: 60px; }
     <div class="nav-item" id="navAbastecimentos" onclick="showPage('abastecimentos')">
       <span class="nav-icon">⛽</span> Abastecimentos
     </div>
+    <div class="nav-item" id="navFrota" onclick="showPage('frota')">
+      <span class="nav-icon">🚛</span> Frota
+    </div>
     <div class="nav-section">Relatórios</div>
     <div class="nav-item" id="navDRE" onclick="showPage('dre')">
       <span class="nav-icon">▦</span> DFC
@@ -870,6 +873,9 @@ textarea { resize: vertical; min-height: 60px; }
         <button id="abstBtnDiesel" class="btn btn-sm"             onclick="setAbstFiltro('Diesel')">🔵 Diesel</button>
         <button id="abstBtnArla"   class="btn btn-sm"             onclick="setAbstFiltro('Arla')">🟡 Arla</button>
         <div style="flex:1"></div>
+        <select id="abstFiltroCaminhao" onchange="renderAbastecimentos()" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--font-mono);font-size:12px;background:#fff">
+          <option value="">Todos os caminhões</option>
+        </select>
         <select id="abstFiltroAno" onchange="renderAbastecimentos()" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--font-mono);font-size:12px;background:#fff">
           <option value="">Todos os anos</option>
         </select>
@@ -892,6 +898,19 @@ textarea { resize: vertical; min-height: 60px; }
           <tfoot id="tfootAbastecimentos"></tfoot>
         </table>
       </div>
+    </div>
+
+    <!-- ── Frota ── -->
+    <div id="pageFrota" style="display:none">
+      <!-- Cards KPI por caminhão -->
+      <div id="frotaKpiCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px"></div>
+
+      <!-- Lista de caminhões -->
+      <div class="section-header" style="margin-bottom:12px">
+        <div class="section-title">Caminhões Cadastrados</div>
+        <button class="btn btn-primary btn-sm" onclick="abrirModalCaminhao()">+ Novo Caminhão</button>
+      </div>
+      <div id="frotaList"></div>
     </div>
 
     <!-- ── Orçamento ── -->
@@ -1077,7 +1096,7 @@ textarea { resize: vertical; min-height: 60px; }
       </div>
       <div class="form-group">
         <label>Categoria</label>
-        <select id="fCategoria" required></select>
+        <select id="fCategoria" required onchange="atualizarCaminhaoSelect()"></select>
       </div>
       <div class="form-group">
         <label>Valor (R$)</label>
@@ -1092,6 +1111,10 @@ textarea { resize: vertical; min-height: 60px; }
           <option value="Outro">Outro</option>
         </select>
       </div>
+      <div class="form-group" id="fCaminhaoGroup">
+        <label>Caminhão</label>
+        <select id="fCaminhao"></select>
+      </div>
       <div class="form-group">
         <label>Observação (opcional)</label>
         <input type="text" id="fObs" placeholder="Informações adicionais...">
@@ -1100,6 +1123,40 @@ textarea { resize: vertical; min-height: 60px; }
     <div class="form-actions">
       <button type="button" class="btn" onclick="fecharModal()">Cancelar</button>
       <button type="submit" class="btn btn-success">Salvar Lançamento</button>
+    </div>
+  </form>
+</div>
+</div>
+
+<!-- ── Modal Caminhão ── -->
+<div class="modal-overlay" id="modalCaminhaoOverlay">
+<div class="modal">
+  <div class="modal-title">
+    <span id="modalCaminhaoTitle">Cadastrar Caminhão</span>
+    <span class="modal-close" onclick="fecharModalCaminhao()">✕</span>
+  </div>
+  <form id="formCaminhao" onsubmit="salvarCaminhao(event)">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Nome / Identificação *</label>
+        <input type="text" id="cNome" placeholder="Ex: LORS-01" required>
+      </div>
+      <div class="form-group">
+        <label>Placa Cavalo (cavalo mecânico)</label>
+        <input type="text" id="cPlacaCavalo" placeholder="Ex: UBL-1D28" style="text-transform:uppercase">
+      </div>
+      <div class="form-group full">
+        <label>Placas dos Implementos (separadas por vírgula)</label>
+        <input type="text" id="cPlacasImplemento" placeholder="Ex: JZP-1B80, JZO-7C50" style="text-transform:uppercase">
+      </div>
+      <div class="form-group full">
+        <label>Observação</label>
+        <input type="text" id="cObs" placeholder="Informações adicionais...">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn" onclick="fecharModalCaminhao()">Cancelar</button>
+      <button type="submit" class="btn btn-success">Salvar Caminhão</button>
     </div>
   </form>
 </div>
@@ -1477,10 +1534,11 @@ async function loadDataFromFirestore() {
       pagamentosSocios = d.pagamentosSocios || pagamentosSocios;
       faturamentos     = d.faturamentos     || faturamentos;
       abastecimentos   = d.abastecimentos   || abastecimentos;
+      caminhoes        = (d.caminhoes && d.caminhoes.length) ? d.caminhoes : caminhoes;
       // Normalizar categorias após carga do Firestore
       const migrou = aplicarMigracoes();
       // Salvar cache local (com dados já migrados)
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes }));
       // Se houve migração, persistir de volta no Firestore
       if (migrou) saveDataToFirestore();
     }
@@ -1496,7 +1554,7 @@ async function saveDataToFirestore() {
     const badge = document.getElementById('cloudSyncBadge');
     if (badge) { badge.textContent = '☁ salvando…'; badge.style.color = 'var(--yellow)'; }
     await db.collection('appdata').doc('main').set({
-      lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos,
+      lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       updatedBy: currentUser.email
     });
@@ -1613,7 +1671,7 @@ async function togglePerm(uid, perm, val) {
 const STORAGE_KEY = 'lors_financeiro_v1';
 
 function saveData() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes }));
   saveDataToFirestore();
   if (gdriveConfig.url && gdriveConfig.autoSync !== false) {
     sincronizarGDrive(true);
@@ -1885,6 +1943,20 @@ function copiarAppsScript() {
 const CATS_RECEITA = ['receita', 'aporte', 'outros'];
 const CATS_SAIDA   = ['despvar','manutencao','pessoal','administrativo','implemento','caminhao','seguro','impostos','outros'];
 
+// Categorias de saída que são específicas de um caminhão
+const CATS_CAMINHAO = ['despvar','manutencao','implemento','caminhao'];
+
+const DEFAULT_CAMINHOES = [
+  {
+    id:               'lors01',
+    nome:             'LORS-01',
+    placaCavalo:      'UBL-1D28',
+    placasImplemento: ['JZP-1B80','JZO-7C50'],
+    ativo:            true,
+    obs:              ''
+  }
+];
+
 const CAT_LABELS = {
   receita:       'Faturamento',
   aporte:        'Aporte de Capital',
@@ -2005,6 +2077,8 @@ let nextId           = _stored ? _stored.nextId           : 75;
 let pagamentosSocios = _stored ? (_stored.pagamentosSocios||[]) : [];
 let faturamentos     = _stored ? (_stored.faturamentos    ||[]) : [];
 let abastecimentos   = _stored ? (_stored.abastecimentos  ||[]) : [];
+let caminhoes        = _stored ? (_stored.caminhoes       || JSON.parse(JSON.stringify(DEFAULT_CAMINHOES))) : JSON.parse(JSON.stringify(DEFAULT_CAMINHOES));
+let editingCaminhaoId = null;
 let editingId       = null;
 let duplicatingFrom = null; // snapshot original ao duplicar
 let currentSection  = 'receita'; // 'receita' | 'saida'
@@ -2053,6 +2127,22 @@ function aplicarMigracoes() {
     }
   });
 
+  // 3) Taggear como LORS-01 tudo que ainda não tem caminhão informado
+  //    Lançamentos de categorias específicas de veículo
+  lancamentos.forEach(l => {
+    if (l.tipo === 'saida' && CATS_CAMINHAO.includes(l.categoria) && !l.caminhao) {
+      l.caminhao = 'lors01'; alterou = true;
+    }
+  });
+  // Todos os abastecimentos são do frota atual (LORS-01)
+  abastecimentos.forEach(a => {
+    if (!a.caminhao) { a.caminhao = 'lors01'; alterou = true; }
+  });
+  // Faturamentos — todos referentes à LORS-01 enquanto houver só um caminhão
+  faturamentos.forEach(f => {
+    if (!f.caminhao) { f.caminhao = 'lors01'; alterou = true; }
+  });
+
   return alterou;
 }
 
@@ -2093,6 +2183,7 @@ const pages = {
   graficos:    {el:'pageGraficos',   title:'Gráficos', sub:'Análise visual dos dados financeiros'},
   faturamento: {el:'pageFaturamento', title:'Faturamento',         sub:'Receitas de frete por viagem'},
   abastecimentos: {el:'pageAbastecimentos', title:'Abastecimentos', sub:'Diesel e Arla — registros diários'},
+  frota:          {el:'pageFrota',          title:'Frota',          sub:'Cadastro e gestão de caminhões'},
   socios:      {el:'pageSocios',     title:'Pagamento a Sócios',  sub:'Controle de reembolsos para Otávio e Rodrigo'},
   orcamento:   {el:'pageOrcamento',  title:'Orçamento de Frete',  sub:'Simulador de custo e margem por viagem'},
   admin:       {el:'pageAdmin',      title:'Usuários',            sub:'Gerenciamento de acesso ao sistema'},
@@ -2110,6 +2201,7 @@ function showPage(page) {
   if(page==='graficos') setTimeout(renderCharts, 50);
   if(page==='faturamento') renderFaturamento();
   if(page==='abastecimentos') renderAbastecimentos();
+  if(page==='frota')         renderFrota();
   if(page==='socios')   renderSocios();
   if(page==='orcamento') calcOrcamento();
   if(page==='admin')    { renderAdmin(); renderBackups(); }
@@ -2320,6 +2412,26 @@ function updateCategorias() {
   const tipo = document.getElementById('fTipo').value;
   const cats = tipo==='receita'?CATS_RECEITA:CATS_SAIDA;
   document.getElementById('fCategoria').innerHTML = cats.map(c=>`<option value="${c}">${CAT_LABELS[c]}</option>`).join('');
+  atualizarCaminhaoSelect();
+}
+
+function atualizarCaminhaoSelect() {
+  const tipo     = document.getElementById('fTipo').value;
+  const cat      = document.getElementById('fCategoria').value;
+  const grp      = document.getElementById('fCaminhaoGroup');
+  const sel      = document.getElementById('fCaminhao');
+  if (!grp || !sel) return;
+  // Mostrar para saídas de categorias de veículo, ou se só há um caminhão (default)
+  const show = tipo === 'saida';
+  grp.style.display = show ? '' : 'none';
+  if (show) {
+    sel.innerHTML = '<option value="">— Geral / N/A —</option>' +
+      caminhoes.filter(c=>c.ativo).map(c=>`<option value="${c.id}">${c.nome}${c.placaCavalo?' ('+c.placaCavalo+')':''}</option>`).join('');
+    // Auto-selecionar se só há um caminhão ativo
+    if (caminhoes.filter(c=>c.ativo).length === 1 && CATS_CAMINHAO.includes(cat)) {
+      sel.value = caminhoes.find(c=>c.ativo).id;
+    }
+  }
 }
 
 function abrirModal(id=null) {
@@ -2340,6 +2452,8 @@ function abrirModal(id=null) {
     document.getElementById('fValor').value = l.valor;
     document.getElementById('fObs').value = l.obs||'';
     document.getElementById('fQuemPagou').value = l.quemPagou||'';
+    atualizarCaminhaoSelect();
+    if (l.caminhao) document.getElementById('fCaminhao').value = l.caminhao;
   } else {
     // Novo lançamento: pré-selecionar tipo conforme seção ativa
     document.getElementById('fData').value = new Date().toISOString().slice(0,10);
@@ -2372,6 +2486,7 @@ function salvarLancamento(e) {
     valor:      parseFloat(document.getElementById('fValor').value),
     obs:        document.getElementById('fObs').value,
     quemPagou:  document.getElementById('fQuemPagou').value,
+    caminhao:   document.getElementById('fCaminhao')?.value || null,
   };
 
   // Validação de duplicação: obrigar alteração de pelo menos 1 campo
@@ -3304,7 +3419,7 @@ async function sincronizarFaturamentoDrive(silent = false) {
     if (abstAdicionados > 0) abastecimentos.sort((a,b) => a.data.localeCompare(b.data) || a.prod.localeCompare(b.prod));
 
     // Salvar sempre (mesmo sem novidades) para garantir persistência
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes }));
     await saveDataToFirestore();
 
     // Registrar info de última sincronização
@@ -3733,7 +3848,7 @@ async function importarFaturamentoHistorico() {
   const abstAdicionados = await importarAbastecimentoHistorico();
 
   // Salvar em localStorage E aguardar Firestore (inclui abastecimentos)
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes }));
   await saveDataToFirestore();
 
   btn.textContent = adicionados > 0 ? `✓ ${adicionados} fat. + ${abstAdicionados} abast.` : '✓ Atualizado';
@@ -3857,10 +3972,17 @@ function sortAbst(col) {
 }
 
 function renderAbastecimentos() {
-  const anoSel = document.getElementById('abstFiltroAno').value;
-  const mesSel = document.getElementById('abstFiltroMes').value;
+  const anoSel      = document.getElementById('abstFiltroAno').value;
+  const mesSel      = document.getElementById('abstFiltroMes').value;
+  const caminhaoSel = document.getElementById('abstFiltroCaminhao')?.value || '';
 
-  // Preencher selects de ano/mês
+  // Preencher selects de caminhão, ano e mês
+  const selCam = document.getElementById('abstFiltroCaminhao');
+  if (selCam) {
+    const camAtual = selCam.value;
+    selCam.innerHTML = '<option value="">Todos os caminhões</option>' +
+      caminhoes.filter(c=>c.ativo).map(c=>`<option value="${c.id}"${c.id===camAtual?' selected':''}>${c.nome}</option>`).join('');
+  }
   const anos    = [...new Set(abastecimentos.map(a => a.data.slice(0,4)))].sort().reverse();
   const selAno  = document.getElementById('abstFiltroAno');
   const selMes  = document.getElementById('abstFiltroMes');
@@ -3895,6 +4017,7 @@ function renderAbastecimentos() {
   // ── Filtrar e ordenar ────────────────────────────────────────────────────
   let dados = [...abastecimentos];
   if (abstFiltro !== 'todos') dados = dados.filter(a => a.prod === abstFiltro);
+  if (caminhaoSel) dados = dados.filter(a => a.caminhao === caminhaoSel);
   if (anoSel) dados = dados.filter(a => a.data.startsWith(anoSel));
   if (mesSel) dados = dados.filter(a => a.data.slice(5,7) === mesSel);
   dados.sort((a,b) => {
@@ -3966,11 +4089,13 @@ function renderAbastecimentos() {
   const tbody   = document.getElementById('tbodyAbastecimentos');
   const tfoot   = document.getElementById('tfootAbastecimentos');
 
-  // Cabeçalho dinâmico: colunas km só aparecem quando há dados de km
+  // Cabeçalho dinâmico: coluna Caminhão aparece com >1 caminhão; colunas km quando há dados
+  const maisDeUmCaminhao = caminhoes.filter(c=>c.ativo).length > 1;
   const theadEl = document.getElementById('theadAbastRow');
   if (theadEl) {
     theadEl.innerHTML = `
       <th onclick="sortAbst('data')" style="cursor:pointer">Data ${abstSort.col==='data'?(abstSort.asc?'↑':'↓'):''}</th>
+      ${maisDeUmCaminhao ? `<th onclick="sortAbst('caminhao')" style="cursor:pointer">Caminhão</th>` : ''}
       <th>Fornecedor</th>
       <th onclick="sortAbst('prod')" style="cursor:pointer">Produto ${abstSort.col==='prod'?(abstSort.asc?'↑':'↓'):''}</th>
       <th class="r" onclick="sortAbst('qtd')" style="cursor:pointer">Qtd (L) ${abstSort.col==='qtd'?(abstSort.asc?'↑':'↓'):''}</th>
@@ -3983,9 +4108,9 @@ function renderAbastecimentos() {
     `;
   }
 
+  const totalCols = 6 + (maisDeUmCaminhao ? 1 : 0) + (temKm ? 3 : 0);
   if (!dados.length) {
-    const cols = 6 + (temKm ? 3 : 0);
-    tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center;color:var(--muted);padding:40px">Nenhum registro encontrado.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${totalCols}" style="text-align:center;color:var(--muted);padding:40px">Nenhum registro encontrado.</td></tr>`;
     tfoot.innerHTML = '';
     return;
   }
@@ -3994,6 +4119,7 @@ function renderAbastecimentos() {
     const prodColor = a.prod === 'Diesel' ? 'var(--accent)' : 'var(--yellow)';
     const prodBg    = a.prod === 'Diesel' ? 'var(--blue-lt)' : 'var(--yellow-lt)';
     const key       = a.data+'|'+a.prod+'|'+a.forn;
+    const camNome   = caminhoes.find(c=>c.id===a.caminhao)?.nome || a.caminhao || '—';
     const kmInfo    = kmMap[key];
 
     let kmCols = '';
@@ -4020,6 +4146,7 @@ function renderAbastecimentos() {
 
     return `<tr>
       <td>${fmtData(a.data)}</td>
+      ${maisDeUmCaminhao ? `<td style="font-size:11px;font-weight:600;color:var(--accent)">${camNome}</td>` : ''}
       <td>${a.forn}</td>
       <td><span style="background:${prodBg};color:${prodColor};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">${a.prod}</span></td>
       <td class="r">${a.qtd.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
@@ -4032,9 +4159,9 @@ function renderAbastecimentos() {
   // Rodapé com totais
   const totQtd   = dados.reduce((s,a)=>s+a.qtd,0);
   const totValor = dados.reduce((s,a)=>s+(a.vTotal||0),0);
-  const cols = 6 + (temKm ? 3 : 0);
+  const colsBase = 3 + (maisDeUmCaminhao ? 1 : 0);
   tfoot.innerHTML = `<tr style="background:var(--paper2);font-weight:700">
-    <td colspan="3">Total (${dados.length} registros)</td>
+    <td colspan="${colsBase}">Total (${dados.length} registros)</td>
     <td class="r">${totQtd.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})} L</td>
     <td></td>
     <td class="r">${totValor > 0 ? fmt(totValor) : '—'}</td>
@@ -4058,6 +4185,144 @@ async function importarAbastecimentoHistorico() {
   });
   abastecimentos.sort((a,b) => a.data.localeCompare(b.data) || a.prod.localeCompare(b.prod));
   return adicionados;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FROTA — Gestão de Caminhões
+// ═══════════════════════════════════════════════════════════════
+function renderFrota() {
+  const kpiEl  = document.getElementById('frotaKpiCards');
+  const listEl = document.getElementById('frotaList');
+  if (!kpiEl || !listEl) return;
+
+  // ── KPI cards por caminhão ──────────────────────────────────
+  kpiEl.innerHTML = caminhoes.map(c => {
+    const litros = abastecimentos
+      .filter(a => a.caminhao === c.id && a.prod === 'Diesel')
+      .reduce((s,a) => s + a.qtd, 0);
+    const custo  = lancamentos
+      .filter(l => l.tipo === 'saida' && CATS_CAMINHAO.includes(l.categoria) && l.caminhao === c.id)
+      .reduce((s,l) => s + l.valor, 0);
+    const viagens = faturamentos.filter(f => f.caminhao === c.id).length;
+    const km = (() => {
+      const diesel = abastecimentos.filter(a => a.caminhao === c.id && a.prod === 'Diesel' && a.km != null)
+        .sort((a,b) => a.data.localeCompare(b.data));
+      return diesel.length ? diesel[diesel.length-1].km.toLocaleString('pt-BR') + ' km' : '—';
+    })();
+    const statusCor = c.ativo ? 'var(--green)' : 'var(--muted)';
+    const statusBg  = c.ativo ? 'var(--green-lt)' : 'var(--paper2)';
+    return `<div style="background:${statusBg};border:2px solid ${statusCor};border-radius:var(--r);padding:20px 24px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-family:var(--font-head);font-size:22px;font-weight:800;color:${statusCor}">${c.nome}</div>
+        <span style="font-size:10px;background:${statusCor};color:#fff;padding:2px 8px;border-radius:10px;font-weight:600">
+          ${c.ativo ? 'ATIVO' : 'INATIVO'}
+        </span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;color:var(--muted);margin-bottom:12px">
+        <div>🚛 Cavalo: <strong style="color:var(--ink)">${c.placaCavalo || '—'}</strong></div>
+        <div>🚚 Impl.: <strong style="color:var(--ink)">${(c.placasImplemento||[]).join(' · ') || '—'}</strong></div>
+        <div>⛽ Diesel total: <strong style="color:var(--accent)">${litros.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})} L</strong></div>
+        <div>📍 Hodômetro: <strong style="color:var(--accent)">${km}</strong></div>
+        <div>🛣 Viagens: <strong style="color:var(--ink)">${viagens}</strong></div>
+        <div>🔧 Manutenção: <strong style="color:var(--red)">${fmt(custo)}</strong></div>
+      </div>
+      ${c.obs ? `<div style="font-size:11px;color:var(--muted);font-style:italic">${c.obs}</div>` : ''}
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn btn-sm" onclick="abrirModalCaminhao('${c.id}')">✎ Editar</button>
+        ${caminhoes.length > 1
+          ? `<button class="btn btn-sm btn-danger" onclick="excluirCaminhao('${c.id}')">✕ Remover</button>`
+          : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  // ── Tabela resumo ───────────────────────────────────────────
+  listEl.innerHTML = `
+    <div class="table-wrap" style="margin-top:0">
+      <table>
+        <thead><tr>
+          <th>Nome</th><th>Cavalo</th><th>Implementos</th>
+          <th class="r">Diesel (L)</th><th class="r">Km atual</th>
+          <th class="r">Manutenção</th><th>Status</th><th></th>
+        </tr></thead>
+        <tbody>${caminhoes.map(c => {
+          const litros = abastecimentos.filter(a=>a.caminhao===c.id&&a.prod==='Diesel').reduce((s,a)=>s+a.qtd,0);
+          const custo  = lancamentos.filter(l=>l.tipo==='saida'&&CATS_CAMINHAO.includes(l.categoria)&&l.caminhao===c.id).reduce((s,l)=>s+l.valor,0);
+          const diesel = abastecimentos.filter(a=>a.caminhao===c.id&&a.prod==='Diesel'&&a.km!=null).sort((a,b)=>a.data.localeCompare(b.data));
+          const kmAtual = diesel.length ? diesel[diesel.length-1].km.toLocaleString('pt-BR')+' km' : '—';
+          return `<tr>
+            <td style="font-weight:700">${c.nome}</td>
+            <td><code style="font-size:11px">${c.placaCavalo||'—'}</code></td>
+            <td style="font-size:11px">${(c.placasImplemento||[]).join(', ')||'—'}</td>
+            <td class="r">${litros.toLocaleString('pt-BR',{minimumFractionDigits:0})}</td>
+            <td class="r">${kmAtual}</td>
+            <td class="r" style="color:var(--red)">${fmt(custo)}</td>
+            <td><span style="font-size:10px;background:${c.ativo?'var(--green-lt)':'var(--paper2)'};color:${c.ativo?'var(--green)':'var(--muted)'};padding:2px 8px;border-radius:10px">${c.ativo?'Ativo':'Inativo'}</span></td>
+            <td style="text-align:right;white-space:nowrap">
+              <button class="btn btn-sm" onclick="abrirModalCaminhao('${c.id}')">✎</button>
+              ${caminhoes.length>1?`<button class="btn btn-sm btn-danger" onclick="excluirCaminhao('${c.id}')">✕</button>`:''}
+            </td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>`;
+}
+
+function abrirModalCaminhao(id = null) {
+  editingCaminhaoId = id;
+  document.getElementById('modalCaminhaoTitle').textContent = id ? 'Editar Caminhão' : 'Cadastrar Caminhão';
+  document.getElementById('formCaminhao').reset();
+  if (id) {
+    const c = caminhoes.find(x => x.id === id);
+    if (!c) return;
+    document.getElementById('cNome').value              = c.nome;
+    document.getElementById('cPlacaCavalo').value       = c.placaCavalo || '';
+    document.getElementById('cPlacasImplemento').value  = (c.placasImplemento||[]).join(', ');
+    document.getElementById('cObs').value               = c.obs || '';
+  }
+  document.getElementById('modalCaminhaoOverlay').classList.add('open');
+}
+
+function fecharModalCaminhao() {
+  document.getElementById('modalCaminhaoOverlay').classList.remove('open');
+  editingCaminhaoId = null;
+}
+
+function salvarCaminhao(e) {
+  e.preventDefault();
+  const nome    = document.getElementById('cNome').value.trim();
+  const cavalo  = document.getElementById('cPlacaCavalo').value.trim().toUpperCase();
+  const implStr = document.getElementById('cPlacasImplemento').value.trim().toUpperCase();
+  const obs     = document.getElementById('cObs').value.trim();
+  const placasImpl = implStr ? implStr.split(',').map(p=>p.trim()).filter(Boolean) : [];
+
+  if (editingCaminhaoId) {
+    const c = caminhoes.find(x => x.id === editingCaminhaoId);
+    if (c) {
+      c.nome             = nome;
+      c.placaCavalo      = cavalo;
+      c.placasImplemento = placasImpl;
+      c.obs              = obs;
+    }
+  } else {
+    // Gerar id a partir do nome (slug)
+    const id = nome.toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,12) + Date.now().toString().slice(-4);
+    caminhoes.push({ id, nome, placaCavalo: cavalo, placasImplemento: placasImpl, ativo: true, obs });
+  }
+  fecharModalCaminhao();
+  saveData();
+  renderFrota();
+  showToast(`Caminhão "${nome}" salvo com sucesso!`, 'success');
+}
+
+function excluirCaminhao(id) {
+  const c = caminhoes.find(x => x.id === id);
+  if (!c) return;
+  if (!confirm(`Remover o caminhão "${c.nome}"?\nTodos os lançamentos vinculados a ele serão mantidos.`)) return;
+  caminhoes = caminhoes.filter(x => x.id !== id);
+  saveData();
+  renderFrota();
+  showToast(`Caminhão "${c.nome}" removido.`, 'success');
 }
 
 // ═══════════════════════════════════════════════════════════════
