@@ -609,17 +609,17 @@ textarea { resize: vertical; min-height: 60px; }
   </div>
   <nav class="nav">
     <div class="nav-section">Lançamentos</div>
-    <div class="nav-item active" id="navLancamentos" onclick="showPage('lancamentos')">
-      <span class="nav-icon">◈</span> Lançamentos
+    <div class="nav-item" id="navAbastecimentos" onclick="showPage('abastecimentos')">
+      <span class="nav-icon">⛽</span> Abastecimentos
     </div>
     <div class="nav-item" id="navFaturamento" onclick="showPage('faturamento')">
       <span class="nav-icon">◑</span> Faturamento
     </div>
-    <div class="nav-item" id="navAbastecimentos" onclick="showPage('abastecimentos')">
-      <span class="nav-icon">⛽</span> Abastecimentos
-    </div>
     <div class="nav-item" id="navFrota" onclick="showPage('frota')">
       <span class="nav-icon">🚛</span> Frota
+    </div>
+    <div class="nav-item active" id="navLancamentos" onclick="showPage('lancamentos')">
+      <span class="nav-icon">◈</span> Lançamentos
     </div>
     <div class="nav-section">Relatórios</div>
     <div class="nav-item" id="navDRE" onclick="showPage('dre')">
@@ -629,14 +629,14 @@ textarea { resize: vertical; min-height: 60px; }
       <span class="nav-icon">◉</span> Gráficos
     </div>
     <div class="nav-section">Ferramentas</div>
-    <div class="nav-item" onclick="showPage('socios')" id="navSocios">
-      <span class="nav-icon">⊙</span> Sócios
+    <div class="nav-item" onclick="showPage('orcamento')" id="navOrcamento">
+      <span class="nav-icon">⊞</span> Orçamento
     </div>
     <div class="nav-item" onclick="showPage('pagamentos')" id="navPagamentos">
       <span class="nav-icon">📋</span> Pagamentos
     </div>
-    <div class="nav-item" onclick="showPage('orcamento')" id="navOrcamento">
-      <span class="nav-icon">⊞</span> Orçamento
+    <div class="nav-item" onclick="showPage('socios')" id="navSocios">
+      <span class="nav-icon">⊙</span> Sócios
     </div>
     <div class="nav-item" onclick="showPage('admin')" id="navAdmin" style="display:none">
       <span class="nav-icon">⚙</span> Usuários
