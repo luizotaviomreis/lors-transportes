@@ -4243,7 +4243,7 @@ function renderFrota() {
       .filter(a => a.caminhao === c.id && a.prod === 'Arla')
       .reduce((s,a) => s + a.qtd, 0);
     const custo  = lancamentos
-      .filter(l => l.tipo === 'saida' && CATS_CAMINHAO.includes(l.categoria) && l.caminhao === c.id)
+      .filter(l => l.tipo === 'saida' && l.categoria === 'manutencao' && l.caminhao === c.id)
       .reduce((s,l) => s + l.valor, 0);
     const viagens = faturamentos.filter(f => f.caminhao === c.id).length;
     const km = (() => {
@@ -4291,7 +4291,7 @@ function renderFrota() {
         <tbody>${caminhoes.map(c => {
           const litrosDiesel = abastecimentos.filter(a=>a.caminhao===c.id&&a.prod==='Diesel').reduce((s,a)=>s+a.qtd,0);
           const litrosArla   = abastecimentos.filter(a=>a.caminhao===c.id&&a.prod==='Arla').reduce((s,a)=>s+a.qtd,0);
-          const custo  = lancamentos.filter(l=>l.tipo==='saida'&&CATS_CAMINHAO.includes(l.categoria)&&l.caminhao===c.id).reduce((s,l)=>s+l.valor,0);
+          const custo  = lancamentos.filter(l=>l.tipo==='saida'&&l.categoria==='manutencao'&&l.caminhao===c.id).reduce((s,l)=>s+l.valor,0);
           const diesel = abastecimentos.filter(a=>a.caminhao===c.id&&a.prod==='Diesel'&&a.km!=null).sort((a,b)=>a.data.localeCompare(b.data));
           const kmAtual = diesel.length ? diesel[diesel.length-1].km.toLocaleString('pt-BR')+' km' : '—';
           return `<tr>
