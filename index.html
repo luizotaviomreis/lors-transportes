@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -880,16 +880,14 @@ textarea { resize: vertical; min-height: 60px; }
       <!-- Tabela -->
       <div class="table-wrap">
         <table>
-          <thead>
-            <tr>
-              <th onclick="sortAbst('data')" style="cursor:pointer">Data ⇅</th>
-              <th>Fornecedor</th>
-              <th style="cursor:pointer" onclick="sortAbst('prod')">Produto ⇅</th>
-              <th class="r" onclick="sortAbst('qtd')" style="cursor:pointer">Quantidade (L) ⇅</th>
-              <th class="r">R$/L</th>
-              <th class="r">Total</th>
-            </tr>
-          </thead>
+          <thead><tr id="theadAbastRow">
+            <th onclick="sortAbst('data')" style="cursor:pointer">Data ↑</th>
+            <th>Fornecedor</th>
+            <th onclick="sortAbst('prod')" style="cursor:pointer">Produto</th>
+            <th class="r" onclick="sortAbst('qtd')" style="cursor:pointer">Qtd (L)</th>
+            <th class="r">Vl. Unit.</th>
+            <th class="r">Total</th>
+          </tr></thead>
           <tbody id="tbodyAbastecimentos"></tbody>
           <tfoot id="tfootAbastecimentos"></tfoot>
         </table>
@@ -3156,7 +3154,48 @@ function doGet(e) {
       });
     }
 
-    return _json({ ok: true, viagens: viagens, count: viagens.length, updatedAt: new Date().toISOString() });
+    // 5b. Ler aba Abastecimento (com km)
+    var abastecimentos = [];
+    var shAbast = ss.getSheetByName('Abastecimento');
+    if (shAbast) {
+      var rowsA = shAbast.getDataRange().getValues();
+      var hdrA = -1;
+      for (var ia = 0; ia < rowsA.length; ia++) {
+        if (String(rowsA[ia][1]).trim().toLowerCase() === 'data') { hdrA = ia; break; }
+      }
+      if (hdrA !== -1) {
+        for (var ja = hdrA + 1; ja < rowsA.length; ja++) {
+          var rowA = rowsA[ja];
+          if (!rowA[1]) continue;
+          var dateStrA;
+          var vA = rowA[1];
+          if (vA instanceof Date) {
+            dateStrA = Utilities.formatDate(vA, TZ, 'yyyy-MM-dd');
+          } else if (typeof vA === 'number' && vA > 1000) {
+            var dA = new Date((vA - 25569) * 86400 * 1000);
+            dateStrA = Utilities.formatDate(dA, TZ, 'yyyy-MM-dd');
+          } else {
+            var pA = String(vA).split('/');
+            if (pA.length === 3) dateStrA = pA[2] + '-' + ('0'+pA[1]).slice(-2) + '-' + ('0'+pA[0]).slice(-2);
+            else continue;
+          }
+          var fornA  = String(rowA[2] || '').trim();
+          var prodA  = String(rowA[3] || '').trim();
+          var qtdA   = Number(rowA[4]);
+          var vUnitA = rowA[5] ? Number(rowA[5]) : null;
+          var vTotA  = rowA[6] ? Number(rowA[6]) : null;
+          var kmA    = rowA[7] ? Number(rowA[7]) : null;
+          if (!dateStrA || !prodA || isNaN(qtdA) || qtdA === 0) continue;
+          abastecimentos.push({
+            data: dateStrA, forn: fornA, prod: prodA,
+            qtd: qtdA, vUnit: vUnitA, vTotal: vTotA, km: kmA
+          });
+        }
+      }
+    }
+
+    return _json({ ok: true, viagens: viagens, count: viagens.length,
+                   abastecimentos: abastecimentos, updatedAt: new Date().toISOString() });
 
   } catch(err) {
     return _json({ error: err.message });
@@ -3234,6 +3273,7 @@ async function sincronizarFaturamentoDrive(silent = false) {
       return;
     }
 
+    // Faturamentos
     const datasExistentes = new Set(faturamentos.map(f => f.data));
     let adicionados = 0;
     viagens.forEach(v => {
@@ -3242,10 +3282,26 @@ async function sincronizarFaturamentoDrive(silent = false) {
         adicionados++;
       }
     });
+    if (adicionados > 0) faturamentos.sort((a,b) => a.data.localeCompare(b.data));
 
-    if (adicionados > 0) {
-      faturamentos.sort((a,b) => a.data.localeCompare(b.data));
-    }
+    // Abastecimentos com km (vindos do Apps Script atualizado)
+    let abstAdicionados = 0, abstAtualizados = 0;
+    const abstDrive = data.abastecimentos || [];
+    abstDrive.forEach(a => {
+      const key = a.data + '|' + a.prod + '|' + a.forn;
+      const existente = abastecimentos.find(x => x.data+'|'+x.prod+'|'+x.forn === key);
+      if (!existente) {
+        abastecimentos.push({ ...a });
+        abstAdicionados++;
+      } else {
+        // Atualiza km se veio preenchido do Excel
+        if (a.km != null && existente.km !== a.km) {
+          existente.km = a.km;
+          abstAtualizados++;
+        }
+      }
+    });
+    if (abstAdicionados > 0) abastecimentos.sort((a,b) => a.data.localeCompare(b.data) || a.prod.localeCompare(b.prod));
 
     // Salvar sempre (mesmo sem novidades) para garantir persistência
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos }));
@@ -3256,6 +3312,7 @@ async function sincronizarFaturamentoDrive(silent = false) {
     localStorage.setItem(FAT_SYNC_LAST_KEY, JSON.stringify(syncMeta));
     atualizarFatSyncInfo();
     renderFaturamento();
+    renderAbastecimentos();
 
     if (!silent) {
       if (adicionados > 0) {
@@ -3263,6 +3320,7 @@ async function sincronizarFaturamentoDrive(silent = false) {
       } else {
         showToast(`✓ Já atualizado — ${faturamentos.length} viagens no app`, 'success');
       }
+      if (abstAtualizados > 0) showToast(`✓ ${abstAtualizados} km atualizado${abstAtualizados > 1 ? 's' : ''} nos abastecimentos`, 'success');
     }
 
   } catch(err) {
@@ -3700,88 +3758,88 @@ let abstFiltro = 'todos';
 let abstSort = { col:'data', asc:true };
 
 const ABASTECIMENTO_HISTORICO = [
-  {data:'2026-02-12',forn:'Mallon',prod:'Diesel',qtd:431.56,vUnit:5.79,vTotal:2498.73},
-  {data:'2026-02-12',forn:'Mallon',prod:'Arla',qtd:53.00,vUnit:3.45,vTotal:182.85},
-  {data:'2026-02-15',forn:'Dunapetrol',prod:'Diesel',qtd:424.45,vUnit:5.89,vTotal:2500.00},
-  {data:'2026-02-16',forn:'Hresko',prod:'Diesel',qtd:400.00,vUnit:5.29,vTotal:2116.00},
-  {data:'2026-02-17',forn:'Hresko',prod:'Diesel',qtd:376.00,vUnit:5.29,vTotal:1989.04},
-  {data:'2026-02-17',forn:'Hresko',prod:'Arla',qtd:63.01,vUnit:2.99,vTotal:188.39},
-  {data:'2026-02-18',forn:'Hresko',prod:'Diesel',qtd:403.00,vUnit:5.29,vTotal:2131.87},
-  {data:'2026-02-19',forn:'Hresko',prod:'Diesel',qtd:376.00,vUnit:5.29,vTotal:1989.04},
-  {data:'2026-02-19',forn:'Hresko',prod:'Arla',qtd:54.04,vUnit:2.99,vTotal:161.57},
-  {data:'2026-02-20',forn:'Hresko',prod:'Diesel',qtd:376.00,vUnit:5.29,vTotal:1989.04},
-  {data:'2026-02-23',forn:'Hresko',prod:'Arla',qtd:45.06,vUnit:2.99,vTotal:134.72},
-  {data:'2026-02-23',forn:'Hresko',prod:'Diesel',qtd:399.00,vUnit:5.39,vTotal:2150.61},
-  {data:'2026-02-24',forn:'Hresko',prod:'Diesel',qtd:375.00,vUnit:5.39,vTotal:2021.25},
-  {data:'2026-02-25',forn:'Hresko',prod:'Arla',qtd:48.09,vUnit:2.99,vTotal:143.78},
-  {data:'2026-02-25',forn:'Hresko',prod:'Diesel',qtd:403.00,vUnit:5.39,vTotal:2172.17},
-  {data:'2026-02-26',forn:'Hresko',prod:'Diesel',qtd:376.00,vUnit:5.39,vTotal:2026.64},
-  {data:'2026-02-27',forn:'Hresko',prod:'Arla',qtd:47.68,vUnit:2.99,vTotal:142.55},
-  {data:'2026-02-27',forn:'Hresko',prod:'Diesel',qtd:386.00,vUnit:5.39,vTotal:2080.54},
-  {data:'2026-03-02',forn:'Hresko',prod:'Diesel',qtd:406.00,vUnit:null,vTotal:null},
-  {data:'2026-03-03',forn:'Hresko',prod:'Diesel',qtd:396.00,vUnit:null,vTotal:null},
-  {data:'2026-03-03',forn:'Hresko',prod:'Arla',qtd:48.77,vUnit:null,vTotal:null},
-  {data:'2026-03-04',forn:'Hresko',prod:'Diesel',qtd:392.00,vUnit:null,vTotal:null},
-  {data:'2026-03-05',forn:'Hresko',prod:'Arla',qtd:45.68,vUnit:null,vTotal:null},
-  {data:'2026-03-05',forn:'Hresko',prod:'Diesel',qtd:396.00,vUnit:null,vTotal:null},
-  {data:'2026-03-06',forn:'Hresko',prod:'Diesel',qtd:395.00,vUnit:null,vTotal:null},
-  {data:'2026-03-07',forn:'Hresko',prod:'Arla',qtd:41.03,vUnit:null,vTotal:null},
-  {data:'2026-03-07',forn:'Hresko',prod:'Diesel',qtd:391.00,vUnit:null,vTotal:null},
-  {data:'2026-03-09',forn:'Hresko',prod:'Diesel',qtd:416.00,vUnit:null,vTotal:null},
-  {data:'2026-03-10',forn:'Hresko',prod:'Arla',qtd:43.02,vUnit:null,vTotal:null},
-  {data:'2026-03-10',forn:'Hresko',prod:'Diesel',qtd:348.00,vUnit:null,vTotal:null},
-  {data:'2026-03-11',forn:'Hresko',prod:'Diesel',qtd:427.00,vUnit:null,vTotal:null},
-  {data:'2026-03-13',forn:'Hresko',prod:'Diesel',qtd:385.00,vUnit:null,vTotal:null},
-  {data:'2026-03-13',forn:'Hresko',prod:'Arla',qtd:40.05,vUnit:null,vTotal:null},
-  {data:'2026-03-16',forn:'Hresko',prod:'Diesel',qtd:257.00,vUnit:null,vTotal:null},
-  {data:'2026-03-17',forn:'Hresko',prod:'Arla',qtd:50.55,vUnit:null,vTotal:null},
-  {data:'2026-03-17',forn:'Hresko',prod:'Diesel',qtd:565.00,vUnit:null,vTotal:null},
-  {data:'2026-03-18',forn:'Hresko',prod:'Diesel',qtd:403.00,vUnit:null,vTotal:null},
-  {data:'2026-03-19',forn:'Hresko',prod:'Arla',qtd:40.01,vUnit:null,vTotal:null},
-  {data:'2026-03-19',forn:'Hresko',prod:'Diesel',qtd:440.00,vUnit:null,vTotal:null},
-  {data:'2026-03-20',forn:'Hresko',prod:'Diesel',qtd:401.00,vUnit:null,vTotal:null},
-  {data:'2026-03-21',forn:'Hresko',prod:'Diesel',qtd:405.00,vUnit:null,vTotal:null},
-  {data:'2026-03-21',forn:'Hresko',prod:'Arla',qtd:43.31,vUnit:null,vTotal:null},
-  {data:'2026-03-23',forn:'Hresko',prod:'Diesel',qtd:470.09,vUnit:7.25,vTotal:3408.15},
-  {data:'2026-03-24',forn:'Hresko',prod:'Diesel',qtd:438.01,vUnit:7.25,vTotal:3175.57},
-  {data:'2026-03-25',forn:'Hresko',prod:'Diesel',qtd:435.03,vUnit:7.25,vTotal:3153.97},
-  {data:'2026-03-25',forn:'Hresko',prod:'Arla',qtd:61.56,vUnit:null,vTotal:null},
-  {data:'2026-03-26',forn:'Hresko',prod:'Diesel',qtd:387.00,vUnit:null,vTotal:null},
-  {data:'2026-03-27',forn:'Hresko',prod:'Diesel',qtd:242.00,vUnit:null,vTotal:null},
-  {data:'2026-03-28',forn:'Hresko',prod:'Diesel',qtd:553.00,vUnit:null,vTotal:null},
-  {data:'2026-03-28',forn:'Hresko',prod:'Arla',qtd:59.52,vUnit:null,vTotal:null},
-  {data:'2026-03-30',forn:'Hresko',prod:'Diesel',qtd:233.00,vUnit:null,vTotal:null},
-  {data:'2026-03-31',forn:'Hresko',prod:'Diesel',qtd:570.00,vUnit:null,vTotal:null},
-  {data:'2026-03-31',forn:'Hresko',prod:'Arla',qtd:42.54,vUnit:null,vTotal:null},
-  {data:'2026-04-01',forn:'Hresko',prod:'Diesel',qtd:388.00,vUnit:null,vTotal:null},
-  {data:'2026-04-02',forn:'Hresko',prod:'Arla',qtd:40.01,vUnit:null,vTotal:null},
-  {data:'2026-04-02',forn:'Hresko',prod:'Diesel',qtd:400.00,vUnit:null,vTotal:null},
-  {data:'2026-04-06',forn:'Hresko',prod:'Diesel',qtd:379.00,vUnit:null,vTotal:null},
-  {data:'2026-04-09',forn:'Hresko',prod:'Diesel',qtd:402.00,vUnit:null,vTotal:null},
-  {data:'2026-04-10',forn:'Hresko',prod:'Diesel',qtd:430.00,vUnit:null,vTotal:null},
-  {data:'2026-04-10',forn:'Hresko',prod:'Arla',qtd:60.52,vUnit:null,vTotal:null},
-  {data:'2026-04-11',forn:'Hresko',prod:'Diesel',qtd:385.00,vUnit:null,vTotal:null},
-  {data:'2026-04-13',forn:'Hresko',prod:'Arla',qtd:39.92,vUnit:null,vTotal:null},
-  {data:'2026-04-13',forn:'Hresko',prod:'Diesel',qtd:397.00,vUnit:null,vTotal:null},
-  {data:'2026-04-14',forn:'Hresko',prod:'Diesel',qtd:405.00,vUnit:null,vTotal:null},
-  {data:'2026-04-15',forn:'Hresko',prod:'Diesel',qtd:405.00,vUnit:null,vTotal:null},
-  {data:'2026-04-20',forn:'Hresko',prod:'Arla',qtd:63.32,vUnit:null,vTotal:null},
-  {data:'2026-04-20',forn:'Hresko',prod:'Diesel',qtd:411.00,vUnit:null,vTotal:null},
-  {data:'2026-04-21',forn:'Hresko',prod:'Diesel',qtd:396.00,vUnit:null,vTotal:null},
-  {data:'2026-04-22',forn:'Hresko',prod:'Arla',qtd:40.03,vUnit:null,vTotal:null},
-  {data:'2026-04-22',forn:'Hresko',prod:'Diesel',qtd:270.00,vUnit:null,vTotal:null},
-  {data:'2026-04-23',forn:'Hresko',prod:'Diesel',qtd:539.00,vUnit:null,vTotal:null},
-  {data:'2026-04-24',forn:'Hresko',prod:'Arla',qtd:40.49,vUnit:null,vTotal:null},
-  {data:'2026-04-24',forn:'Hresko',prod:'Diesel',qtd:387.00,vUnit:null,vTotal:null},
-  {data:'2026-04-25',forn:'Hresko',prod:'Diesel',qtd:395.00,vUnit:null,vTotal:null},
-  {data:'2026-04-27',forn:'Hresko',prod:'Diesel',qtd:411.00,vUnit:null,vTotal:null},
-  {data:'2026-04-28',forn:'Hresko',prod:'Arla',qtd:56.04,vUnit:null,vTotal:null},
-  {data:'2026-04-28',forn:'Hresko',prod:'Diesel',qtd:402.00,vUnit:null,vTotal:null},
-  {data:'2026-04-29',forn:'Hresko',prod:'Diesel',qtd:270.00,vUnit:null,vTotal:null},
-  {data:'2026-04-30',forn:'Hresko',prod:'Diesel',qtd:537.00,vUnit:null,vTotal:null},
-  {data:'2026-05-01',forn:'Hresko',prod:'Diesel',qtd:405.00,vUnit:null,vTotal:null},
-  {data:'2026-05-01',forn:'Hresko',prod:'Arla',qtd:64.20,vUnit:null,vTotal:null},
-  {data:'2026-05-02',forn:'Hresko',prod:'Arla',qtd:400.00,vUnit:null,vTotal:null},
+  {data:'2026-02-12',forn:'Mallon',prod:'Diesel',qtd:431.56,vUnit:5.79,vTotal:2498.73,km:null},
+  {data:'2026-02-12',forn:'Mallon',prod:'Arla',qtd:53.00,vUnit:3.45,vTotal:182.85,km:null},
+  {data:'2026-02-15',forn:'Dunapetrol',prod:'Diesel',qtd:424.45,vUnit:5.89,vTotal:2500.00,km:null},
+  {data:'2026-02-16',forn:'Hresko',prod:'Diesel',qtd:400.00,vUnit:5.29,vTotal:2116.00,km:null},
+  {data:'2026-02-17',forn:'Hresko',prod:'Diesel',qtd:376.00,vUnit:5.29,vTotal:1989.04,km:null},
+  {data:'2026-02-17',forn:'Hresko',prod:'Arla',qtd:63.01,vUnit:2.99,vTotal:188.39,km:null},
+  {data:'2026-02-18',forn:'Hresko',prod:'Diesel',qtd:403.00,vUnit:5.29,vTotal:2131.87,km:null},
+  {data:'2026-02-19',forn:'Hresko',prod:'Diesel',qtd:376.00,vUnit:5.29,vTotal:1989.04,km:null},
+  {data:'2026-02-19',forn:'Hresko',prod:'Arla',qtd:54.04,vUnit:2.99,vTotal:161.57,km:null},
+  {data:'2026-02-20',forn:'Hresko',prod:'Diesel',qtd:376.00,vUnit:5.29,vTotal:1989.04,km:null},
+  {data:'2026-02-23',forn:'Hresko',prod:'Arla',qtd:45.06,vUnit:2.99,vTotal:134.72,km:null},
+  {data:'2026-02-23',forn:'Hresko',prod:'Diesel',qtd:399.00,vUnit:5.39,vTotal:2150.61,km:null},
+  {data:'2026-02-24',forn:'Hresko',prod:'Diesel',qtd:375.00,vUnit:5.39,vTotal:2021.25,km:null},
+  {data:'2026-02-25',forn:'Hresko',prod:'Arla',qtd:48.09,vUnit:2.99,vTotal:143.78,km:null},
+  {data:'2026-02-25',forn:'Hresko',prod:'Diesel',qtd:403.00,vUnit:5.39,vTotal:2172.17,km:null},
+  {data:'2026-02-26',forn:'Hresko',prod:'Diesel',qtd:376.00,vUnit:5.39,vTotal:2026.64,km:null},
+  {data:'2026-02-27',forn:'Hresko',prod:'Arla',qtd:47.68,vUnit:2.99,vTotal:142.55,km:null},
+  {data:'2026-02-27',forn:'Hresko',prod:'Diesel',qtd:386.00,vUnit:5.39,vTotal:2080.54,km:null},
+  {data:'2026-03-02',forn:'Hresko',prod:'Diesel',qtd:406.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-03',forn:'Hresko',prod:'Diesel',qtd:396.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-03',forn:'Hresko',prod:'Arla',qtd:48.77,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-04',forn:'Hresko',prod:'Diesel',qtd:392.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-05',forn:'Hresko',prod:'Arla',qtd:45.68,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-05',forn:'Hresko',prod:'Diesel',qtd:396.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-06',forn:'Hresko',prod:'Diesel',qtd:395.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-07',forn:'Hresko',prod:'Arla',qtd:41.03,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-07',forn:'Hresko',prod:'Diesel',qtd:391.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-09',forn:'Hresko',prod:'Diesel',qtd:416.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-10',forn:'Hresko',prod:'Arla',qtd:43.02,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-10',forn:'Hresko',prod:'Diesel',qtd:348.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-11',forn:'Hresko',prod:'Diesel',qtd:427.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-13',forn:'Hresko',prod:'Diesel',qtd:385.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-13',forn:'Hresko',prod:'Arla',qtd:40.05,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-16',forn:'Hresko',prod:'Diesel',qtd:257.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-17',forn:'Hresko',prod:'Arla',qtd:50.55,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-17',forn:'Hresko',prod:'Diesel',qtd:565.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-18',forn:'Hresko',prod:'Diesel',qtd:403.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-19',forn:'Hresko',prod:'Arla',qtd:40.01,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-19',forn:'Hresko',prod:'Diesel',qtd:440.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-20',forn:'Hresko',prod:'Diesel',qtd:401.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-21',forn:'Hresko',prod:'Diesel',qtd:405.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-21',forn:'Hresko',prod:'Arla',qtd:43.31,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-23',forn:'Hresko',prod:'Diesel',qtd:470.09,vUnit:7.25,vTotal:3408.15,km:null},
+  {data:'2026-03-24',forn:'Hresko',prod:'Diesel',qtd:438.01,vUnit:7.25,vTotal:3175.57,km:null},
+  {data:'2026-03-25',forn:'Hresko',prod:'Diesel',qtd:435.03,vUnit:7.25,vTotal:3153.97,km:null},
+  {data:'2026-03-25',forn:'Hresko',prod:'Arla',qtd:61.56,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-26',forn:'Hresko',prod:'Diesel',qtd:387.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-27',forn:'Hresko',prod:'Diesel',qtd:242.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-28',forn:'Hresko',prod:'Diesel',qtd:553.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-28',forn:'Hresko',prod:'Arla',qtd:59.52,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-30',forn:'Hresko',prod:'Diesel',qtd:233.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-31',forn:'Hresko',prod:'Diesel',qtd:570.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-03-31',forn:'Hresko',prod:'Arla',qtd:42.54,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-01',forn:'Hresko',prod:'Diesel',qtd:388.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-02',forn:'Hresko',prod:'Arla',qtd:40.01,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-02',forn:'Hresko',prod:'Diesel',qtd:400.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-06',forn:'Hresko',prod:'Diesel',qtd:379.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-09',forn:'Hresko',prod:'Diesel',qtd:402.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-10',forn:'Hresko',prod:'Diesel',qtd:430.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-10',forn:'Hresko',prod:'Arla',qtd:60.52,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-11',forn:'Hresko',prod:'Diesel',qtd:385.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-13',forn:'Hresko',prod:'Arla',qtd:39.92,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-13',forn:'Hresko',prod:'Diesel',qtd:397.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-14',forn:'Hresko',prod:'Diesel',qtd:405.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-15',forn:'Hresko',prod:'Diesel',qtd:405.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-20',forn:'Hresko',prod:'Arla',qtd:63.32,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-20',forn:'Hresko',prod:'Diesel',qtd:411.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-21',forn:'Hresko',prod:'Diesel',qtd:396.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-22',forn:'Hresko',prod:'Arla',qtd:40.03,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-22',forn:'Hresko',prod:'Diesel',qtd:270.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-23',forn:'Hresko',prod:'Diesel',qtd:539.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-24',forn:'Hresko',prod:'Arla',qtd:40.49,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-24',forn:'Hresko',prod:'Diesel',qtd:387.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-25',forn:'Hresko',prod:'Diesel',qtd:395.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-27',forn:'Hresko',prod:'Diesel',qtd:411.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-28',forn:'Hresko',prod:'Arla',qtd:56.04,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-28',forn:'Hresko',prod:'Diesel',qtd:402.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-29',forn:'Hresko',prod:'Diesel',qtd:270.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-04-30',forn:'Hresko',prod:'Diesel',qtd:537.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-05-01',forn:'Hresko',prod:'Diesel',qtd:405.00,vUnit:null,vTotal:null,km:null},
+  {data:'2026-05-01',forn:'Hresko',prod:'Arla',qtd:64.20,vUnit:null,vTotal:null,km:null},
+  {data:'2026-05-02',forn:'Hresko',prod:'Arla',qtd:400.00,vUnit:null,vTotal:null,km:null},
 ];
 
 function setAbstFiltro(f) {
@@ -3802,64 +3860,132 @@ function renderAbastecimentos() {
   const anoSel = document.getElementById('abstFiltroAno').value;
   const mesSel = document.getElementById('abstFiltroMes').value;
 
-  // Preencher selects
-  const anos = [...new Set(abastecimentos.map(a => a.data.slice(0,4)))].sort().reverse();
-  const selAno = document.getElementById('abstFiltroAno');
-  const selMes = document.getElementById('abstFiltroMes');
-  const anoAtual = selAno.value; const mesAtual = selMes.value;
+  // Preencher selects de ano/mês
+  const anos    = [...new Set(abastecimentos.map(a => a.data.slice(0,4)))].sort().reverse();
+  const selAno  = document.getElementById('abstFiltroAno');
+  const selMes  = document.getElementById('abstFiltroMes');
+  const anoAtual = selAno.value, mesAtual = selMes.value;
   selAno.innerHTML = '<option value="">Todos os anos</option>' + anos.map(a=>`<option value="${a}"${a===anoAtual?' selected':''}>${a}</option>`).join('');
   const mesesNomes = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   selMes.innerHTML = '<option value="">Todos os meses</option>' + mesesNomes.slice(1).map((n,i)=>{const v=String(i+1).padStart(2,'0');return `<option value="${v}"${v===mesAtual?' selected':''}>${n}</option>`;}).join('');
 
-  // Filtrar
+  // ── Cálculo de km percorrida por abastecimento de Diesel ──────────────────
+  // Todos os registros Diesel com km apontado, ordenados por data e km
+  const dieselComKm = abastecimentos
+    .filter(a => a.prod === 'Diesel' && a.km != null)
+    .sort((a,b) => a.data.localeCompare(b.data) || a.km - b.km);
+
+  // Mapa: chave data|prod|forn → { kmPercorrida, estimado }
+  const kmMap = {};
+  if (dieselComKm.length > 0) {
+    // Primeiro registro: estima com km[0] / total de viagens até aquela data
+    const viagensAte0 = faturamentos.filter(f => f.data <= dieselComKm[0].data).length || 1;
+    const kmEstimado  = Math.round(dieselComKm[0].km / viagensAte0);
+    kmMap[dieselComKm[0].data+'|'+dieselComKm[0].prod+'|'+dieselComKm[0].forn] =
+      { km: dieselComKm[0].km, percorrida: kmEstimado, estimado: true };
+
+    for (let i = 1; i < dieselComKm.length; i++) {
+      const percorrida = dieselComKm[i].km - dieselComKm[i-1].km;
+      kmMap[dieselComKm[i].data+'|'+dieselComKm[i].prod+'|'+dieselComKm[i].forn] =
+        { km: dieselComKm[i].km, percorrida, estimado: false };
+    }
+  }
+  const temKm = dieselComKm.length > 0; // controla visibilidade das colunas km
+
+  // ── Filtrar e ordenar ────────────────────────────────────────────────────
   let dados = [...abastecimentos];
   if (abstFiltro !== 'todos') dados = dados.filter(a => a.prod === abstFiltro);
   if (anoSel) dados = dados.filter(a => a.data.startsWith(anoSel));
   if (mesSel) dados = dados.filter(a => a.data.slice(5,7) === mesSel);
-
-  // Ordenar
   dados.sort((a,b) => {
-    let va = a[abstSort.col==='qtd'?'qtd':abstSort.col==='prod'?'prod':'data'];
-    let vb = b[abstSort.col==='qtd'?'qtd':abstSort.col==='prod'?'prod':'data'];
+    const va = a[abstSort.col] ?? a.data;
+    const vb = b[abstSort.col] ?? b.data;
     if (typeof va === 'string') return abstSort.asc ? va.localeCompare(vb) : vb.localeCompare(va);
     return abstSort.asc ? va - vb : vb - va;
   });
 
-  // Cards
+  // ── KPIs ─────────────────────────────────────────────────────────────────
   const filtroAbst  = a => (!anoSel||a.data.startsWith(anoSel)) && (!mesSel||a.data.slice(5,7)===mesSel);
   const totalDiesel = abastecimentos.filter(a=>a.prod==='Diesel'&&filtroAbst(a)).reduce((s,a)=>s+a.qtd,0);
   const totalArla   = abastecimentos.filter(a=>a.prod==='Arla'  &&filtroAbst(a)).reduce((s,a)=>s+a.qtd,0);
   const totalCusto  = abastecimentos.filter(a=>a.vTotal         &&filtroAbst(a)).reduce((s,a)=>s+(a.vTotal||0),0);
-  const nReg        = dados.length;
 
-  // Média L/ton: diesel total ÷ toneladas transportadas no mesmo período
+  // Km total percorrido e média L/100km no período filtrado
+  const kmPeriodo = dieselComKm
+    .filter(a => filtroAbst(a))
+    .map(a => kmMap[a.data+'|'+a.prod+'|'+a.forn]?.percorrida || 0);
+  const totalKmPercorrido = kmPeriodo.reduce((s,v)=>s+v,0);
+
+  // Consumo médio L/100km: (diesel total no período) / (km total percorrido) * 100
+  const mediaL100km = totalKmPercorrido > 0
+    ? (totalDiesel / totalKmPercorrido) * 100 : 0;
+
+  // Média L/ton
   const totalTonFat = faturamentos
-    .filter(f => (!anoSel || f.data.startsWith(anoSel)) && (!mesSel || f.data.slice(5,7)===mesSel))
+    .filter(f => (!anoSel||f.data.startsWith(anoSel)) && (!mesSel||f.data.slice(5,7)===mesSel))
     .reduce((s,f) => s + f.ton, 0);
   const mediaLPorTon = totalTonFat > 0 ? totalDiesel / totalTonFat : 0;
 
-  const fmtL = v => v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' L';
+  const fmtL    = v => v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' L';
+  const fmtKm   = v => v.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0}) + ' km';
 
-  document.getElementById('abstCards').innerHTML = [
-    {label:'Total Diesel',       val: fmtL(totalDiesel),  color:'var(--accent)', bg:'var(--blue-lt)'},
-    {label:'Total Arla',         val: fmtL(totalArla),    color:'var(--yellow)', bg:'var(--yellow-lt)'},
-    {label:'Custo c/ valores',   val: fmt(totalCusto),    color:'var(--red)',    bg:'var(--red-lt)'},
-    {label:'Média Diesel/ton',   val: totalTonFat > 0
+  const cards = [
+    {label:'Total Diesel',     val: fmtL(totalDiesel),            color:'var(--accent)', bg:'var(--blue-lt)'},
+    {label:'Total Arla',       val: fmtL(totalArla),              color:'var(--yellow)', bg:'var(--yellow-lt)'},
+    {label:'Custo combustível',val: fmt(totalCusto),              color:'var(--red)',    bg:'var(--red-lt)'},
+    {label:'Média Diesel/ton', val: totalTonFat > 0
         ? mediaLPorTon.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' L/ton'
-        : '—',                                            color:'var(--green)',  bg:'var(--green-lt)'},
-    {label:'Registros filtro',   val: nReg,               color:'var(--muted)',  bg:'#fff'},
-  ].map(c=>`<div style="background:${c.bg};border:1px solid var(--border);border-radius:var(--r);padding:18px 20px">
-    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px">${c.label}</div>
-    <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:${c.color}">${c.val}</div>
-  </div>`).join('');
+        : '—',                                                     color:'var(--green)',  bg:'var(--green-lt)'},
+  ];
+  // Cards de km — aparecem assim que houver dados de km
+  if (temKm) {
+    cards.push({
+      label: 'Km percorrido (período)',
+      val:   totalKmPercorrido > 0 ? fmtKm(totalKmPercorrido) : '—',
+      color: 'var(--accent)', bg: 'var(--blue-lt)'
+    });
+    cards.push({
+      label: 'Consumo médio',
+      val:   mediaL100km > 0
+        ? mediaL100km.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' L/100km'
+        : '—',
+      color: mediaL100km > 0 && mediaL100km <= 38 ? 'var(--green)' : 'var(--red)',
+      bg:    'var(--paper2)'
+    });
+  }
+  cards.push({label:'Registros',val:dados.length,color:'var(--muted)',bg:'#fff'});
 
-  // Tabela
+  document.getElementById('abstCards').innerHTML = cards.map(c=>`
+    <div style="background:${c.bg};border:1px solid var(--border);border-radius:var(--r);padding:18px 20px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px">${c.label}</div>
+      <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:${c.color}">${c.val}</div>
+    </div>`).join('');
+
+  // ── Tabela ───────────────────────────────────────────────────────────────
   const fmtData = d => { const [y,m,dd]=d.split('-'); return `${dd}/${m}/${y}`; };
-  const tbody = document.getElementById('tbodyAbastecimentos');
-  const tfoot = document.getElementById('tfootAbastecimentos');
+  const tbody   = document.getElementById('tbodyAbastecimentos');
+  const tfoot   = document.getElementById('tfootAbastecimentos');
+
+  // Cabeçalho dinâmico: colunas km só aparecem quando há dados de km
+  const theadEl = document.getElementById('theadAbastRow');
+  if (theadEl) {
+    theadEl.innerHTML = `
+      <th onclick="sortAbst('data')" style="cursor:pointer">Data ${abstSort.col==='data'?(abstSort.asc?'↑':'↓'):''}</th>
+      <th>Fornecedor</th>
+      <th onclick="sortAbst('prod')" style="cursor:pointer">Produto ${abstSort.col==='prod'?(abstSort.asc?'↑':'↓'):''}</th>
+      <th class="r" onclick="sortAbst('qtd')" style="cursor:pointer">Qtd (L) ${abstSort.col==='qtd'?(abstSort.asc?'↑':'↓'):''}</th>
+      <th class="r">Vl. Unit.</th>
+      <th class="r">Total</th>
+      ${temKm ? `
+      <th class="r" onclick="sortAbst('km')" style="cursor:pointer" title="Km no hodômetro ao abastecer">Km Atual ${abstSort.col==='km'?(abstSort.asc?'↑':'↓'):''}</th>
+      <th class="r" title="Km percorrida desde o abastecimento anterior">Km Percorrida</th>
+      <th class="r" title="Litros por 100km">L/100km</th>` : ''}
+    `;
+  }
 
   if (!dados.length) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:40px">Nenhum registro encontrado.</td></tr>`;
+    const cols = 6 + (temKm ? 3 : 0);
+    tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center;color:var(--muted);padding:40px">Nenhum registro encontrado.</td></tr>`;
     tfoot.innerHTML = '';
     return;
   }
@@ -3867,6 +3993,31 @@ function renderAbastecimentos() {
   tbody.innerHTML = dados.map(a => {
     const prodColor = a.prod === 'Diesel' ? 'var(--accent)' : 'var(--yellow)';
     const prodBg    = a.prod === 'Diesel' ? 'var(--blue-lt)' : 'var(--yellow-lt)';
+    const key       = a.data+'|'+a.prod+'|'+a.forn;
+    const kmInfo    = kmMap[key];
+
+    let kmCols = '';
+    if (temKm) {
+      if (a.prod === 'Diesel' && a.km != null && kmInfo) {
+        const percorr  = kmInfo.percorrida;
+        const lPer100  = percorr > 0 ? (a.qtd / percorr) * 100 : null;
+        const estLabel = kmInfo.estimado
+          ? `<span title="Valor estimado: km total ÷ nº de viagens" style="font-size:9px;color:var(--yellow);margin-left:3px">est.</span>` : '';
+        kmCols = `
+          <td class="r" style="color:var(--muted)">${a.km.toLocaleString('pt-BR')} km</td>
+          <td class="r">${percorr.toLocaleString('pt-BR')} km${estLabel}</td>
+          <td class="r" style="color:${lPer100 && lPer100 <= 38 ? 'var(--green)' : 'var(--red)'}">
+            ${lPer100 ? lPer100.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}) : '—'}
+          </td>`;
+      } else if (a.prod === 'Diesel' && a.km == null) {
+        // Diesel sem km apontado ainda
+        kmCols = `<td class="r" style="color:var(--muted)">—</td><td class="r">—</td><td class="r">—</td>`;
+      } else {
+        // Arla não tem km individual
+        kmCols = `<td></td><td></td><td></td>`;
+      }
+    }
+
     return `<tr>
       <td>${fmtData(a.data)}</td>
       <td>${a.forn}</td>
@@ -3874,29 +4025,35 @@ function renderAbastecimentos() {
       <td class="r">${a.qtd.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
       <td class="r" style="color:var(--muted)">${a.vUnit ? 'R$ '+a.vUnit.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—'}</td>
       <td class="r">${a.vTotal ? fmt(a.vTotal) : '—'}</td>
+      ${kmCols}
     </tr>`;
   }).join('');
 
   // Rodapé com totais
   const totQtd   = dados.reduce((s,a)=>s+a.qtd,0);
   const totValor = dados.reduce((s,a)=>s+(a.vTotal||0),0);
+  const cols = 6 + (temKm ? 3 : 0);
   tfoot.innerHTML = `<tr style="background:var(--paper2);font-weight:700">
     <td colspan="3">Total (${dados.length} registros)</td>
     <td class="r">${totQtd.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})} L</td>
     <td></td>
     <td class="r">${totValor > 0 ? fmt(totValor) : '—'}</td>
+    ${temKm ? `<td></td><td class="r" style="font-weight:700">${totalKmPercorrido > 0 ? fmtKm(totalKmPercorrido) : '—'}</td><td class="r" style="color:var(--accent)">${mediaL100km > 0 ? mediaL100km.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+' L/100km' : '—'}</td>` : ''}
   </tr>`;
 }
 
 async function importarAbastecimentoHistorico() {
   if (!currentUser || currentUser.email !== ADMIN_EMAIL) return;
-  const datasExistentes = new Set(abastecimentos.map(a => a.data + '|' + a.prod + '|' + a.forn));
   let adicionados = 0;
   ABASTECIMENTO_HISTORICO.forEach(a => {
     const key = a.data + '|' + a.prod + '|' + a.forn;
-    if (!datasExistentes.has(key)) {
+    const existente = abastecimentos.find(x => x.data+'|'+x.prod+'|'+x.forn === key);
+    if (!existente) {
       abastecimentos.push({ ...a });
       adicionados++;
+    } else {
+      // Preserva km já registrado via sync do Drive — não sobrescreve com null
+      if (a.km != null && existente.km == null) existente.km = a.km;
     }
   });
   abastecimentos.sort((a,b) => a.data.localeCompare(b.data) || a.prod.localeCompare(b.prod));
