@@ -830,6 +830,9 @@ textarea { resize: vertical; min-height: 60px; }
         <input type="date" id="fatFiltroDataIni" onchange="renderFaturamento()" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--font-mono);font-size:12px;background:#fff" title="Data início">
         <span style="font-size:11px;color:var(--muted)">até</span>
         <input type="date" id="fatFiltroDataFim" onchange="renderFaturamento()" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--font-mono);font-size:12px;background:#fff" title="Data fim">
+        <select id="fatFiltroCaminhao" onchange="renderFaturamento()" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--font-mono);font-size:12px;background:#fff">
+          <option value="">Todos os caminhões</option>
+        </select>
         <button class="btn btn-sm" onclick="limparFiltrosFat()">Limpar</button>
       </div>
 
@@ -850,6 +853,7 @@ textarea { resize: vertical; min-height: 60px; }
               <tr>
                 <th onclick="sortFat('data')" style="cursor:pointer" title="Ordenar por data">Data ⇅</th>
                 <th style="cursor:default;color:var(--muted)">Quinzena</th>
+                <th onclick="sortFat('caminhao')" style="cursor:pointer" title="Ordenar por caminhão">Caminhão ⇅</th>
                 <th class="r" onclick="sortFat('ton')" style="cursor:pointer">Toneladas ⇅</th>
                 <th class="r" onclick="sortFat('preco')" style="cursor:pointer">R$/ton ⇅</th>
                 <th class="r" onclick="sortFat('total')" style="cursor:pointer">Valor Total ⇅</th>
@@ -2158,6 +2162,7 @@ const fmt = v => 'R$ ' + Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigi
 const fmtSigned = v => (v<0?'-':'+') + fmt(v);
 const mes2label = m => { const [y,mo]=m.split('-'); const ns=['','jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez']; return ns[+mo]+'/'+y.slice(2); };
 const dataMes = d => d.slice(0,7);
+const caminhaoNome = id => { const c = caminhoes.find(x => x.id === (id||'lors01')); return c ? c.nome : (id || 'LORS-01'); };
 
 function getMesesRange(start='2026-04', end='2026-12') {
   const meses=[];let cur=start;
@@ -3555,10 +3560,11 @@ function labelPeriodo(key) {
 }
 
 function renderFaturamento() {
-  const anoSel  = document.getElementById('fatFiltroAno').value;
-  const mesSel  = document.getElementById('fatFiltroMes').value;
-  const dataIni = document.getElementById('fatFiltroDataIni').value;
-  const dataFim = document.getElementById('fatFiltroDataFim').value;
+  const anoSel      = document.getElementById('fatFiltroAno').value;
+  const mesSel      = document.getElementById('fatFiltroMes').value;
+  const dataIni     = document.getElementById('fatFiltroDataIni').value;
+  const dataFim     = document.getElementById('fatFiltroDataFim').value;
+  const caminhaoSel = document.getElementById('fatFiltroCaminhao')?.value || '';
 
   // Preencher selects dinamicamente
   const anos = [...new Set(faturamentos.map(f => f.data.slice(0,4)))].sort().reverse();
@@ -3575,12 +3581,23 @@ function renderFaturamento() {
       return `<option value="${v}"${v===mesAtual?' selected':''}>${n}</option>`;
     }).join('');
 
+  // Preencher select de caminhão
+  const selCam = document.getElementById('fatFiltroCaminhao');
+  if (selCam) {
+    const camAtual = selCam.value;
+    selCam.innerHTML = '<option value="">Todos os caminhões</option>' +
+      caminhoes.filter(c => c.ativo).map(c =>
+        `<option value="${c.id}"${c.id === camAtual ? ' selected' : ''}>${c.nome}</option>`
+      ).join('');
+  }
+
   // Filtrar
   let dados = [...faturamentos];
-  if (anoSel)  dados = dados.filter(f => f.data.startsWith(anoSel));
-  if (mesSel)  dados = dados.filter(f => f.data.slice(5,7) === mesSel);
-  if (dataIni) dados = dados.filter(f => f.data >= dataIni);
-  if (dataFim) dados = dados.filter(f => f.data <= dataFim);
+  if (anoSel)      dados = dados.filter(f => f.data.startsWith(anoSel));
+  if (mesSel)      dados = dados.filter(f => f.data.slice(5,7) === mesSel);
+  if (dataIni)     dados = dados.filter(f => f.data >= dataIni);
+  if (dataFim)     dados = dados.filter(f => f.data <= dataFim);
+  if (caminhaoSel) dados = dados.filter(f => (f.caminhao || 'lors01') === caminhaoSel);
 
   // Cards de resumo
   const totalValor = dados.reduce((s,f) => s + f.total, 0);
@@ -3666,6 +3683,7 @@ function renderFaturamentoQuinzena(dados) {
           <thead style="background:var(--paper2)">
             <tr>
               <th style="padding:8px 20px;text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Data</th>
+              <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Caminhão</th>
               <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Toneladas</th>
               <th style="padding:8px 12px;text-align:right;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">R$/ton</th>
               <th style="padding:8px 20px;text-align:right;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Valor</th>
@@ -3674,6 +3692,7 @@ function renderFaturamentoQuinzena(dados) {
           <tbody>
             ${viagens.map(f => `<tr style="border-top:1px solid var(--border)">
               <td style="padding:8px 20px;font-size:12px">${f.data.split('-').reverse().join('/')}</td>
+              <td style="padding:8px 12px;font-size:11px;font-weight:600;color:var(--accent)">${caminhaoNome(f.caminhao||'lors01')}</td>
               <td style="padding:8px 12px;text-align:right;font-size:12px">${f.ton.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
               <td style="padding:8px 12px;text-align:right;font-size:12px">${fmt(f.preco)}</td>
               <td style="padding:8px 20px;text-align:right;font-size:12px;font-weight:600;color:var(--green)">${fmt(f.total)}</td>
@@ -3681,7 +3700,7 @@ function renderFaturamentoQuinzena(dados) {
           </tbody>
           <tfoot style="border-top:2px solid var(--border);background:var(--green-lt)">
             <tr>
-              <td style="padding:10px 20px;font-family:var(--font-head);font-size:12px;font-weight:700">TOTAL</td>
+              <td colspan="2" style="padding:10px 20px;font-family:var(--font-head);font-size:12px;font-weight:700">TOTAL</td>
               <td style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700">${tonGrp.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})} ton</td>
               <td></td>
               <td style="padding:10px 20px;text-align:right;font-family:var(--font-head);font-size:14px;font-weight:700;color:var(--green)">${fmt(totalGrp)}</td>
@@ -3715,20 +3734,22 @@ function renderFaturamentoViagem(dados) {
   });
 
   if (sorted.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">Nenhuma viagem encontrada.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">Nenhuma viagem encontrada.</td></tr>`;
     tfoot.innerHTML = '';
     return;
   }
 
   const hoje = new Date().toISOString().slice(0,10);
   tbody.innerHTML = sorted.map(f => {
-    const dataPgto = calcDataPagamento(f.data);
-    const pgtoFmt  = dataPgto.split('-').reverse().join('/');
-    const q        = getQuinzena(f.data);
-    const pago     = dataPgto < hoje;
+    const dataPgto  = calcDataPagamento(f.data);
+    const pgtoFmt   = dataPgto.split('-').reverse().join('/');
+    const q         = getQuinzena(f.data);
+    const pago      = dataPgto < hoje;
+    const camNome   = caminhaoNome(f.caminhao || 'lors01');
     return `<tr>
       <td style="white-space:nowrap">${f.data.split('-').reverse().join('/')}</td>
       <td style="font-size:11px;color:var(--muted)">${q === 1 ? '1ª Quinzena' : '2ª Quinzena'}</td>
+      <td style="font-size:11px;font-weight:600;color:var(--accent)">${camNome}</td>
       <td class="r">${f.ton.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
       <td class="r">${fmt(f.preco)}</td>
       <td class="r pos" style="font-weight:600">${fmt(f.total)}</td>
@@ -3739,7 +3760,7 @@ function renderFaturamentoViagem(dados) {
   const totalValor = sorted.reduce((s,f) => s + f.total, 0);
   const totalTon   = sorted.reduce((s,f) => s + f.ton,   0);
   tfoot.innerHTML = `<tr style="font-weight:700;border-top:2px solid var(--border)">
-    <td colspan="2" style="font-family:var(--font-head)">${sorted.length} viagem${sorted.length!==1?'s':''}</td>
+    <td colspan="3" style="font-family:var(--font-head)">${sorted.length} viagem${sorted.length!==1?'s':''}</td>
     <td class="r">${totalTon.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})} ton</td>
     <td></td>
     <td class="r pos" style="font-size:15px">${fmt(totalValor)}</td>
@@ -3758,6 +3779,8 @@ function limparFiltrosFat() {
   document.getElementById('fatFiltroMes').value = '';
   document.getElementById('fatFiltroDataIni').value = '';
   document.getElementById('fatFiltroDataFim').value = '';
+  const selCam = document.getElementById('fatFiltroCaminhao');
+  if (selCam) selCam.value = '';
   renderFaturamento();
 }
 
