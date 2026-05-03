@@ -632,6 +632,9 @@ textarea { resize: vertical; min-height: 60px; }
     <div class="nav-item" onclick="showPage('socios')" id="navSocios">
       <span class="nav-icon">⊙</span> Sócios
     </div>
+    <div class="nav-item" onclick="showPage('pagamentos')" id="navPagamentos">
+      <span class="nav-icon">📋</span> Pagamentos
+    </div>
     <div class="nav-item" onclick="showPage('orcamento')" id="navOrcamento">
       <span class="nav-icon">⊞</span> Orçamento
     </div>
@@ -915,6 +918,30 @@ textarea { resize: vertical; min-height: 60px; }
         <button class="btn btn-primary btn-sm" onclick="abrirModalCaminhao()">+ Novo Caminhão</button>
       </div>
       <div id="frotaList"></div>
+    </div>
+
+    <!-- ── Pagamentos ── -->
+    <div id="pagePagamentos" style="display:none">
+
+      <!-- Filtros -->
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:20px">
+        <select id="pagFiltroCategoria" onchange="renderPagamentos()" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--font-mono);font-size:12px;background:#fff">
+          <option value="">Todas as categorias</option>
+        </select>
+        <select id="pagFiltroCaminhao" onchange="renderPagamentos()" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--font-mono);font-size:12px;background:#fff">
+          <option value="">Todos os caminhões</option>
+        </select>
+        <input type="date" id="pagFiltroDataIni" onchange="renderPagamentos()" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--font-mono);font-size:12px;background:#fff" title="Data início">
+        <span style="font-size:11px;color:var(--muted)">até</span>
+        <input type="date" id="pagFiltroDataFim" onchange="renderPagamentos()" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--font-mono);font-size:12px;background:#fff" title="Data fim">
+        <button class="btn btn-sm" onclick="limparFiltrosPag()">Limpar</button>
+      </div>
+
+      <!-- Cards resumo -->
+      <div id="pagCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;margin-bottom:24px"></div>
+
+      <!-- Grupos -->
+      <div id="pagGroups"></div>
     </div>
 
     <!-- ── Orçamento ── -->
@@ -2190,6 +2217,7 @@ const pages = {
   abastecimentos: {el:'pageAbastecimentos', title:'Abastecimentos', sub:'Diesel e Arla — registros diários'},
   frota:          {el:'pageFrota',          title:'Frota',          sub:'Cadastro e gestão de caminhões'},
   socios:      {el:'pageSocios',     title:'Pagamento a Sócios',  sub:'Controle de reembolsos para Otávio e Rodrigo'},
+  pagamentos:  {el:'pagePagamentos', title:'Pagamentos',          sub:'Extrato de despesas agrupadas por categoria e descrição'},
   orcamento:   {el:'pageOrcamento',  title:'Orçamento de Frete',  sub:'Simulador de custo e margem por viagem'},
   admin:       {el:'pageAdmin',      title:'Usuários',            sub:'Gerenciamento de acesso ao sistema'},
 };
@@ -2207,8 +2235,9 @@ function showPage(page) {
   if(page==='faturamento') renderFaturamento();
   if(page==='abastecimentos') renderAbastecimentos();
   if(page==='frota')         renderFrota();
-  if(page==='socios')   renderSocios();
-  if(page==='orcamento') calcOrcamento();
+  if(page==='socios')     renderSocios();
+  if(page==='pagamentos') renderPagamentos();
+  if(page==='orcamento')  calcOrcamento();
   if(page==='admin')    { renderAdmin(); renderBackups(); }
 }
 
@@ -4224,6 +4253,181 @@ async function importarAbastecimentoHistorico() {
   });
   abastecimentos.sort((a,b) => a.data.localeCompare(b.data) || a.prod.localeCompare(b.prod));
   return adicionados;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PAGAMENTOS — Extrato agrupado por categoria e descrição
+// ═══════════════════════════════════════════════════════════════
+function renderPagamentos() {
+  const catSel = document.getElementById('pagFiltroCategoria').value;
+  const camSel = document.getElementById('pagFiltroCaminhao')?.value || '';
+  const iniSel = document.getElementById('pagFiltroDataIni').value;
+  const fimSel = document.getElementById('pagFiltroDataFim').value;
+
+  // Preencher select de categorias com as que existem nos lançamentos
+  const selCat = document.getElementById('pagFiltroCategoria');
+  if (selCat) {
+    const catAtual = selCat.value;
+    const catsUsadas = [...new Set(lancamentos.filter(l=>l.tipo==='saida').map(l=>l.categoria))].sort();
+    selCat.innerHTML = '<option value="">Todas as categorias</option>' +
+      catsUsadas.map(c => `<option value="${c}"${c===catAtual?' selected':''}>${CAT_LABELS[c]||c}</option>`).join('');
+  }
+
+  // Preencher select de caminhões
+  const selCam = document.getElementById('pagFiltroCaminhao');
+  if (selCam) {
+    const camAtual = selCam.value;
+    selCam.innerHTML = '<option value="">Todos os caminhões</option>' +
+      caminhoes.filter(c=>c.ativo).map(c =>
+        `<option value="${c.id}"${c.id===camAtual?' selected':''}>${c.nome}</option>`
+      ).join('');
+  }
+
+  // Filtrar lançamentos de saída
+  let dados = lancamentos.filter(l => l.tipo === 'saida');
+  if (catSel) dados = dados.filter(l => l.categoria === catSel);
+  if (camSel) dados = dados.filter(l => (l.caminhao||'') === camSel);
+  if (iniSel) dados = dados.filter(l => l.data >= iniSel);
+  if (fimSel) dados = dados.filter(l => l.data <= fimSel);
+
+  // Cards resumo
+  const totalPago  = dados.reduce((s,l) => s + l.valor, 0);
+  const nLanc      = dados.length;
+  const nCats      = new Set(dados.map(l => l.categoria)).size;
+  const nDescs     = new Set(dados.map(l => l.descricao)).size;
+
+  document.getElementById('pagCards').innerHTML = [
+    { label:'Total Pago',       val: fmt(totalPago),  color:'var(--red)',    bg:'#fde8e0' },
+    { label:'Lançamentos',      val: nLanc,            color:'var(--ink)',    bg:'#fff'    },
+    { label:'Categorias',       val: nCats,            color:'var(--accent)', bg:'var(--blue-lt)' },
+    { label:'Itens distintos',  val: nDescs,           color:'var(--muted)',  bg:'#fff'    },
+  ].map(c => `<div style="background:${c.bg};border:1px solid var(--border);border-radius:var(--r);padding:18px 20px">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px">${c.label}</div>
+    <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:${c.color}">${c.val}</div>
+  </div>`).join('');
+
+  const grpEl = document.getElementById('pagGroups');
+  if (dados.length === 0) {
+    grpEl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">Nenhum pagamento encontrado para os filtros selecionados.</div>';
+    return;
+  }
+
+  // ── Agrupar por categoria ──────────────────────────────────────
+  const byCat = {};
+  dados.forEach(l => {
+    if (!byCat[l.categoria]) byCat[l.categoria] = [];
+    byCat[l.categoria].push(l);
+  });
+
+  // Ordenar categorias por total decrescente
+  const catsSorted = Object.keys(byCat).sort((a,b) =>
+    byCat[b].reduce((s,l)=>s+l.valor,0) - byCat[a].reduce((s,l)=>s+l.valor,0)
+  );
+
+  grpEl.innerHTML = catsSorted.map(cat => {
+    const items    = byCat[cat];
+    const catTotal = items.reduce((s,l) => s + l.valor, 0);
+    const catLabel = CAT_LABELS[cat] || cat;
+
+    // ── Agrupar por descrição dentro da categoria ───────────────
+    const byDesc = {};
+    items.forEach(l => {
+      if (!byDesc[l.descricao]) byDesc[l.descricao] = [];
+      byDesc[l.descricao].push(l);
+    });
+
+    const descsSorted = Object.keys(byDesc).sort((a,b) =>
+      byDesc[b].reduce((s,l)=>s+l.valor,0) - byDesc[a].reduce((s,l)=>s+l.valor,0)
+    );
+
+    const descRows = descsSorted.map((desc, idx) => {
+      const pags      = byDesc[desc].sort((a,b) => a.data.localeCompare(b.data));
+      const descTotal = pags.reduce((s,l) => s + l.valor, 0);
+      const count     = pags.length;
+      const dataMin   = pags[0].data.split('-').reverse().join('/');
+      const dataMax   = pags[count-1].data.split('-').reverse().join('/');
+      const uid       = 'pd_' + cat + '_' + idx;
+
+      const payRows = pags.map(l => `
+        <tr style="border-top:1px solid var(--border)">
+          <td style="padding:7px 20px 7px 44px;font-size:12px;white-space:nowrap;color:var(--ink)">${l.data.split('-').reverse().join('/')}</td>
+          <td style="padding:7px 12px;font-size:11px;color:var(--muted)">${l.obs || '—'}</td>
+          <td style="padding:7px 12px;font-size:11px;color:var(--muted);white-space:nowrap">${l.quemPagou || '—'}</td>
+          <td style="padding:7px 20px;text-align:right;font-size:12px;font-weight:600;color:var(--red)">${fmt(l.valor)}</td>
+        </tr>`).join('');
+
+      return `
+        <div style="border-top:1px solid var(--border)">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 20px 10px 36px;cursor:pointer;user-select:none;background:#fafafa" onclick="togglePagDesc('${uid}')">
+            <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+              <span id="pagDescIcon-${uid}" style="color:var(--muted);font-size:10px;flex-shrink:0">▶</span>
+              <span style="font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${desc}</span>
+              ${count > 1 ? `<span style="font-size:10px;background:var(--blue-lt);color:var(--accent);padding:2px 8px;border-radius:10px;flex-shrink:0;font-weight:600">${count}×</span>` : ''}
+              <span style="font-size:10px;color:var(--muted);flex-shrink:0">${count > 1 ? dataMin + ' → ' + dataMax : dataMin}</span>
+            </div>
+            <div style="font-family:var(--font-head);font-size:13px;font-weight:700;color:var(--red);flex-shrink:0;margin-left:16px">${fmt(descTotal)}</div>
+          </div>
+          <div id="pagDesc-${uid}" style="display:none">
+            <table style="width:100%;border-collapse:collapse">
+              <thead>
+                <tr style="background:var(--paper2)">
+                  <th style="padding:5px 20px 5px 44px;text-align:left;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Data</th>
+                  <th style="padding:5px 12px;text-align:left;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Observação</th>
+                  <th style="padding:5px 12px;text-align:left;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Pago por</th>
+                  <th style="padding:5px 20px;text-align:right;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Valor</th>
+                </tr>
+              </thead>
+              <tbody>${payRows}</tbody>
+              ${count > 1 ? `<tfoot style="border-top:2px solid var(--border);background:#fde8e0">
+                <tr>
+                  <td colspan="3" style="padding:7px 20px 7px 44px;font-family:var(--font-head);font-size:11px;font-weight:700">TOTAL (${count} pagamentos)</td>
+                  <td style="padding:7px 20px;text-align:right;font-family:var(--font-head);font-size:13px;font-weight:700;color:var(--red)">${fmt(descTotal)}</td>
+                </tr>
+              </tfoot>` : ''}
+            </table>
+          </div>
+        </div>`;
+    }).join('');
+
+    const pluralDesc = descsSorted.length !== 1;
+    return `
+      <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r);margin-bottom:16px;overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;cursor:pointer;user-select:none" onclick="togglePagCat('${cat}')">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span id="pagCatIcon-${cat}" style="color:var(--muted);font-size:14px">▼</span>
+            <span class="badge badge-${CAT_BADGE[cat]||'outros'}">${catLabel}</span>
+            <span style="font-size:11px;color:var(--muted)">${items.length} lançamento${items.length!==1?'s':''} · ${descsSorted.length} item${pluralDesc?'ns':''}</span>
+          </div>
+          <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--red)">${fmt(catTotal)}</div>
+        </div>
+        <div id="pagCat-${cat}">${descRows}</div>
+      </div>`;
+  }).join('');
+}
+
+function togglePagCat(cat) {
+  const el   = document.getElementById('pagCat-' + cat);
+  const icon = document.getElementById('pagCatIcon-' + cat);
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : '';
+  icon.textContent = open ? '▶' : '▼';
+}
+
+function togglePagDesc(uid) {
+  const el   = document.getElementById('pagDesc-' + uid);
+  const icon = document.getElementById('pagDescIcon-' + uid);
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : '';
+  icon.textContent = open ? '▶' : '▼';
+}
+
+function limparFiltrosPag() {
+  document.getElementById('pagFiltroCategoria').value = '';
+  document.getElementById('pagFiltroDataIni').value   = '';
+  document.getElementById('pagFiltroDataFim').value   = '';
+  const selCam = document.getElementById('pagFiltroCaminhao');
+  if (selCam) selCam.value = '';
+  renderPagamentos();
 }
 
 // ═══════════════════════════════════════════════════════════════
