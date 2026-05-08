@@ -4243,15 +4243,19 @@ function renderAbastecimentos() {
   const totalArla   = abastecimentos.filter(a=>a.prod==='Arla'  &&filtroAbst(a)).reduce((s,a)=>s+a.qtd,0);
   const totalCusto  = abastecimentos.filter(a=>a.vTotal         &&filtroAbst(a)).reduce((s,a)=>s+(a.vTotal||0),0);
 
-  // Km total percorrido e média L/100km no período filtrado
-  const kmPeriodo = dieselComKm
-    .filter(a => filtroAbst(a))
-    .map(a => kmMap[a.data+'|'+a.prod+'|'+a.forn]?.percorrida || 0);
-  const totalKmPercorrido = kmPeriodo.reduce((s,v)=>s+v,0);
+  // Km total percorrido — apenas abastecimentos com km preenchido e percorrida calculada
+  const dieselComKmFiltrado = dieselComKm.filter(a => {
+    if (!filtroAbst(a)) return false;
+    const info = kmMap[a.data+'|'+a.prod+'|'+a.forn];
+    return info && info.percorrida > 0;
+  });
+  const totalKmPercorrido  = dieselComKmFiltrado.reduce((s,a) => s + (kmMap[a.data+'|'+a.prod+'|'+a.forn]?.percorrida || 0), 0);
+  // Diesel correspondente apenas às entradas que têm km/percorrida válida
+  const totalDieselComKm   = dieselComKmFiltrado.reduce((s,a) => s + a.qtd, 0);
 
-  // Consumo médio km/L: km total percorrido / diesel total no período
-  const mediaKmL = totalDiesel > 0
-    ? totalKmPercorrido / totalDiesel : 0;
+  // Consumo médio km/L: usa somente litros com km apontado (descarta registros sem km)
+  const mediaKmL = totalDieselComKm > 0
+    ? totalKmPercorrido / totalDieselComKm : 0;
 
   // Média L/ton
   const totalTonFat = faturamentos
