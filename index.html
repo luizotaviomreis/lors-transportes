@@ -4080,7 +4080,7 @@ async function importarFaturamentoHistorico() {
 // ABASTECIMENTOS
 // ═══════════════════════════════════════════════════════════════
 let abstFiltro = 'todos';
-let abstSort = { col:'data', asc:true };
+let abstSort = { col:'data', asc:false };
 
 const ABASTECIMENTO_HISTORICO = [
   {data:'2026-02-12',forn:'Mallon',caminhao:'lors01',prod:'Diesel',qtd:431.56,vUnit:5.79,vTotal:2498.73,km:null},
@@ -4249,9 +4249,9 @@ function renderAbastecimentos() {
     .map(a => kmMap[a.data+'|'+a.prod+'|'+a.forn]?.percorrida || 0);
   const totalKmPercorrido = kmPeriodo.reduce((s,v)=>s+v,0);
 
-  // Consumo médio L/100km: (diesel total no período) / (km total percorrido) * 100
-  const mediaL100km = totalKmPercorrido > 0
-    ? (totalDiesel / totalKmPercorrido) * 100 : 0;
+  // Consumo médio km/L: km total percorrido / diesel total no período
+  const mediaKmL = totalDiesel > 0
+    ? totalKmPercorrido / totalDiesel : 0;
 
   // Média L/ton
   const totalTonFat = faturamentos
@@ -4279,10 +4279,10 @@ function renderAbastecimentos() {
     });
     cards.push({
       label: 'Consumo médio',
-      val:   mediaL100km > 0
-        ? mediaL100km.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' L/100km'
+      val:   mediaKmL > 0
+        ? mediaKmL.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' km/L'
         : '—',
-      color: mediaL100km > 0 && mediaL100km <= 38 ? 'var(--green)' : 'var(--red)',
+      color: mediaKmL > 0 && mediaKmL >= 2.5 ? 'var(--green)' : 'var(--red)',
       bg:    'var(--paper2)'
     });
   }
@@ -4314,7 +4314,7 @@ function renderAbastecimentos() {
       ${temKm ? `
       <th class="r" onclick="sortAbst('km')" style="cursor:pointer" title="Km no hodômetro ao abastecer">Km Atual ${abstSort.col==='km'?(abstSort.asc?'↑':'↓'):''}</th>
       <th class="r" title="Km percorrida desde o abastecimento anterior">Km Percorrida</th>
-      <th class="r" title="Litros por 100km">L/100km</th>` : ''}
+      <th class="r" title="Quilômetros por litro">km/L</th>` : ''}
     `;
   }
 
@@ -4336,14 +4336,14 @@ function renderAbastecimentos() {
     if (temKm) {
       if (a.prod === 'Diesel' && a.km != null && kmInfo) {
         const percorr  = kmInfo.percorrida;
-        const lPer100  = percorr > 0 ? (a.qtd / percorr) * 100 : null;
+        const kmL      = percorr > 0 && a.qtd > 0 ? percorr / a.qtd : null;
         const estLabel = kmInfo.estimado
           ? `<span title="Valor estimado: km total ÷ nº de viagens" style="font-size:9px;color:var(--yellow);margin-left:3px">est.</span>` : '';
         kmCols = `
           <td class="r" style="color:var(--muted)">${a.km.toLocaleString('pt-BR')} km</td>
           <td class="r">${percorr.toLocaleString('pt-BR')} km${estLabel}</td>
-          <td class="r" style="color:${lPer100 && lPer100 <= 38 ? 'var(--green)' : 'var(--red)'}">
-            ${lPer100 ? lPer100.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}) : '—'}
+          <td class="r" style="color:${kmL && kmL >= 2.5 ? 'var(--green)' : 'var(--red)'}">
+            ${kmL ? kmL.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—'}
           </td>`;
       } else if (a.prod === 'Diesel' && a.km == null) {
         // Diesel sem km apontado ainda
@@ -4375,7 +4375,7 @@ function renderAbastecimentos() {
     <td class="r">${totQtd.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})} L</td>
     <td></td>
     <td class="r">${totValor > 0 ? fmt(totValor) : '—'}</td>
-    ${temKm ? `<td></td><td class="r" style="font-weight:700">${totalKmPercorrido > 0 ? fmtKm(totalKmPercorrido) : '—'}</td><td class="r" style="color:var(--accent)">${mediaL100km > 0 ? mediaL100km.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+' L/100km' : '—'}</td>` : ''}
+    ${temKm ? `<td></td><td class="r" style="font-weight:700">${totalKmPercorrido > 0 ? fmtKm(totalKmPercorrido) : '—'}</td><td class="r" style="color:var(--accent)">${mediaKmL > 0 ? mediaKmL.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' km/L' : '—'}</td>` : ''}
   </tr>`;
 }
 
