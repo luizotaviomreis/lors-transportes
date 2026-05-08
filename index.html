@@ -621,6 +621,9 @@ textarea { resize: vertical; min-height: 60px; }
     <div class="nav-item active" id="navLancamentos" onclick="showPage('lancamentos')">
       <span class="nav-icon">◈</span> Lançamentos
     </div>
+    <div class="nav-item" onclick="showPage('manutencao')" id="navManutencao">
+      <span class="nav-icon">🔧</span> Manutenção
+    </div>
     <div class="nav-section">Relatórios</div>
     <div class="nav-item" id="navDRE" onclick="showPage('dre')">
       <span class="nav-icon">▦</span> DFC
@@ -920,6 +923,11 @@ textarea { resize: vertical; min-height: 60px; }
       <div id="frotaList"></div>
     </div>
 
+    <!-- ── Manutenção Programada ── -->
+    <div id="pageManutencao" style="display:none">
+      <div id="manutContent"></div>
+    </div>
+
     <!-- ── Pagamentos ── -->
     <div id="pagePagamentos" style="display:none">
 
@@ -1201,6 +1209,75 @@ textarea { resize: vertical; min-height: 60px; }
   </div>
   <div style="padding:0 24px 8px;font-size:12px;color:var(--muted);flex-shrink:0" id="histSubtitle"></div>
   <div id="histBody" style="flex:1;overflow-y:auto;padding:0 24px 24px"></div>
+</div>
+</div>
+
+<!-- ── Modal Manutenção Programada ── -->
+<div class="modal-overlay" id="modalManutOverlay" onclick="if(event.target===this)fecharModalManut()">
+<div class="modal" style="max-width:520px">
+  <div class="modal-title">
+    <span id="modalManutTitulo">🔧 Nova Manutenção Programada</span>
+    <button class="modal-close" onclick="fecharModalManut()">✕</button>
+  </div>
+  <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
+    <input type="hidden" id="manutId">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div style="grid-column:1/-1">
+        <label class="form-label">Descrição da manutenção *</label>
+        <input id="manutNome" class="form-input" placeholder="Ex: Troca de óleo do motor" style="width:100%">
+      </div>
+      <div>
+        <label class="form-label">Caminhão *</label>
+        <select id="manutCaminhao" class="form-input" style="width:100%"></select>
+      </div>
+      <div>
+        <label class="form-label">Intervalo (km) *</label>
+        <input id="manutIntervalo" type="number" class="form-input" placeholder="Ex: 10000" min="1" style="width:100%">
+      </div>
+      <div>
+        <label class="form-label">Km na última realização</label>
+        <input id="manutUltimoKm" type="number" class="form-input" placeholder="0 = nunca feito" min="0" style="width:100%">
+      </div>
+      <div>
+        <label class="form-label">Alertar com antecedência (km)</label>
+        <input id="manutAlertaKm" type="number" class="form-input" placeholder="Ex: 500" min="0" style="width:100%">
+      </div>
+      <div style="grid-column:1/-1">
+        <label class="form-label">Observações</label>
+        <input id="manutObs" class="form-input" placeholder="Opcional" style="width:100%">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px">
+      <button class="btn" onclick="fecharModalManut()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarManutProg()">Salvar</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ── Modal Registrar Manutenção Feita ── -->
+<div class="modal-overlay" id="modalManutFeitaOverlay" onclick="if(event.target===this)fecharModalManutFeita()">
+<div class="modal" style="max-width:440px">
+  <div class="modal-title">
+    <span>✅ Registrar Manutenção Realizada</span>
+    <button class="modal-close" onclick="fecharModalManutFeita()">✕</button>
+  </div>
+  <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
+    <input type="hidden" id="manutFeitaId">
+    <div id="manutFeitaInfo" style="background:var(--paper2);border-radius:var(--r);padding:14px;font-size:13px;line-height:1.7"></div>
+    <div>
+      <label class="form-label">Km do hodômetro na realização *</label>
+      <input id="manutFeitaKm" type="number" class="form-input" placeholder="Informe o km atual do caminhão" min="0" style="width:100%">
+    </div>
+    <div>
+      <label class="form-label">Observações (opcional)</label>
+      <input id="manutFeitaObs" class="form-input" placeholder="Ex: Utilizado óleo 15W40 Mobil" style="width:100%">
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn" onclick="fecharModalManutFeita()">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarManutFeita()">✅ Confirmar</button>
+    </div>
+  </div>
 </div>
 </div>
 
@@ -1611,10 +1688,11 @@ async function loadDataFromFirestore() {
       faturamentos     = d.faturamentos     || faturamentos;
       abastecimentos   = d.abastecimentos   || abastecimentos;
       caminhoes        = (d.caminhoes && d.caminhoes.length) ? d.caminhoes : caminhoes;
+      manutencaoProg   = d.manutencaoProg   || manutencaoProg;
       // Normalizar categorias após carga do Firestore
       const migrou = aplicarMigracoes();
       // Salvar cache local (com dados já migrados)
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes, manutencaoProg }));
       // Se houve migração, persistir de volta no Firestore
       if (migrou) saveDataToFirestore();
     }
@@ -1630,7 +1708,7 @@ async function saveDataToFirestore() {
     const badge = document.getElementById('cloudSyncBadge');
     if (badge) { badge.textContent = '☁ salvando…'; badge.style.color = 'var(--yellow)'; }
     await db.collection('appdata').doc('main').set({
-      lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes,
+      lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes, manutencaoProg,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       updatedBy: currentUser.email
     });
@@ -1754,7 +1832,7 @@ async function togglePerm(uid, perm, val) {
 const STORAGE_KEY = 'lors_financeiro_v1';
 
 function saveData() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes, manutencaoProg }));
   saveDataToFirestore();
   if (gdriveConfig.url && gdriveConfig.autoSync !== false) {
     sincronizarGDrive(true);
@@ -1778,7 +1856,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function backupDados() {
-  const data = JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes, exportedAt: new Date().toISOString() }, null, 2);
+  const data = JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes, manutencaoProg, exportedAt: new Date().toISOString() }, null, 2);
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
   a.download = 'lors_backup_' + new Date().toISOString().slice(0, 10) + '.json';
@@ -1804,6 +1882,7 @@ function restaurarDados() {
         faturamentos     = d.faturamentos     || [];
         abastecimentos   = d.abastecimentos   || [];
         caminhoes        = d.caminhoes        || JSON.parse(JSON.stringify(DEFAULT_CAMINHOES));
+        manutencaoProg   = d.manutencaoProg   || [];
         nextId = d.nextId || (Math.max(0, ...lancamentos.map(l => l.id)) + 1);
         aplicarMigracoes();
         saveData();
@@ -1812,6 +1891,7 @@ function restaurarDados() {
         renderFaturamento();
         renderAbastecimentos();
         renderFrota();
+        renderManutencao();
         updateKPIs();
         toast('Dados restaurados com sucesso!', 'success');
       } catch(e) { toast('Arquivo inválido ou corrompido.', 'error'); }
@@ -1856,7 +1936,7 @@ async function sincronizarGDrive(silent = false) {
     const res = await fetch(gdriveConfig.url, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'save', lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes })
+      body: JSON.stringify({ action: 'save', lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes, manutencaoProg })
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
@@ -1885,6 +1965,7 @@ async function carregarDoGDrive() {
     pagamentosSocios = json.pagamentosSocios || pagamentosSocios;
     faturamentos     = json.faturamentos     || faturamentos;
     abastecimentos   = json.abastecimentos   || abastecimentos;
+    manutencaoProg   = json.manutencaoProg   || manutencaoProg;
     nextId           = json.nextId || (Math.max(0, ...lancamentos.map(l => l.id)) + 1);
     aplicarMigracoes();
     saveData();
@@ -2168,6 +2249,7 @@ let pagamentosSocios = _stored ? (_stored.pagamentosSocios||[]) : [];
 let faturamentos     = _stored ? (_stored.faturamentos    ||[]) : [];
 let abastecimentos   = _stored ? (_stored.abastecimentos  ||[]) : [];
 let caminhoes        = _stored ? (_stored.caminhoes       || JSON.parse(JSON.stringify(DEFAULT_CAMINHOES))) : JSON.parse(JSON.stringify(DEFAULT_CAMINHOES));
+let manutencaoProg   = _stored ? (_stored.manutencaoProg  || []) : [];
 let editingCaminhaoId = null;
 let editingId       = null;
 let duplicatingFrom = null; // snapshot original ao duplicar
@@ -2276,6 +2358,7 @@ const pages = {
   abastecimentos: {el:'pageAbastecimentos', title:'Abastecimentos', sub:'Diesel e Arla — registros diários'},
   frota:          {el:'pageFrota',          title:'Frota',          sub:'Cadastro e gestão de caminhões'},
   socios:      {el:'pageSocios',     title:'Pagamento a Sócios',  sub:'Controle de reembolsos para Otávio e Rodrigo'},
+  manutencao:  {el:'pageManutencao', title:'Manutenção Programada', sub:'Revisões e manutenções preventivas por hodômetro'},
   pagamentos:  {el:'pagePagamentos', title:'Pagamentos',          sub:'Extrato de despesas agrupadas por categoria e descrição'},
   orcamento:   {el:'pageOrcamento',  title:'Orçamento de Frete',  sub:'Simulador de custo e margem por viagem'},
   admin:       {el:'pageAdmin',      title:'Usuários',            sub:'Gerenciamento de acesso ao sistema'},
@@ -2295,6 +2378,7 @@ function showPage(page) {
   if(page==='abastecimentos') renderAbastecimentos();
   if(page==='frota')         renderFrota();
   if(page==='socios')     renderSocios();
+  if(page==='manutencao') renderManutencao();
   if(page==='pagamentos') renderPagamentos();
   if(page==='orcamento')  calcOrcamento();
   if(page==='admin')    { renderAdmin(); renderBackups(); }
@@ -4577,6 +4661,257 @@ function limparFiltrosPag() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// MANUTENÇÃO PROGRAMADA
+// ═══════════════════════════════════════════════════════════════
+function renderManutencao() {
+  const el = document.getElementById('manutContent');
+  if (!el) return;
+
+  // Km atual por caminhão (hodômetro mais recente com km preenchido)
+  const kmAtualMap = {};
+  caminhoes.filter(c => c.ativo).forEach(c => {
+    const reg = abastecimentos
+      .filter(a => a.caminhao === c.id && a.prod === 'Diesel' && a.km != null)
+      .sort((a, b) => (b.data > a.data ? 1 : b.data < a.data ? -1 : 0));
+    kmAtualMap[c.id] = reg.length ? reg[0].km : null;
+  });
+
+  const getStatus = item => {
+    const km = kmAtualMap[item.caminhao];
+    if (km == null) return 'sem-km';
+    const proximo  = (item.ultimoKmFeito || 0) + item.intervaloKm;
+    const restante = proximo - km;
+    const alerta   = item.alertaKm != null ? item.alertaKm : Math.min(1000, Math.round(item.intervaloKm * 0.1));
+    if (km >= proximo)       return 'vencido';
+    if (restante <= alerta)  return 'atencao';
+    return 'ok';
+  };
+
+  const statusOrder = { vencido: 0, atencao: 1, 'sem-km': 2, ok: 3 };
+  const sorted = [...manutencaoProg].sort((a, b) => statusOrder[getStatus(a)] - statusOrder[getStatus(b)]);
+
+  const fmtKm = v => v != null ? v.toLocaleString('pt-BR') + ' km' : '—';
+
+  const statusInfo = {
+    vencido:  { label: 'VENCIDO',  color: 'var(--red)',    bg: '#fff5f5', border: '#fca5a5', icon: '🔴' },
+    atencao:  { label: 'ATENÇÃO',  color: 'var(--yellow)', bg: '#fffbeb', border: '#fcd34d', icon: '🟡' },
+    ok:       { label: 'EM DIA',   color: 'var(--green)',  bg: '#f0fdf4', border: '#86efac', icon: '🟢' },
+    'sem-km': { label: 'SEM KM',   color: 'var(--muted)',  bg: 'var(--paper2)', border: 'var(--border)', icon: '⚪' },
+  };
+
+  // KM atual cards por caminhão
+  const camAtivos = caminhoes.filter(c => c.ativo);
+  const kmCardsHtml = camAtivos.map(c => {
+    const km = kmAtualMap[c.id];
+    const pendentes = manutencaoProg.filter(m => m.caminhao === c.id && (getStatus(m) === 'vencido' || getStatus(m) === 'atencao')).length;
+    return `<div style="background:var(--blue-lt);border:1px solid var(--border);border-radius:var(--r);padding:16px 20px;display:flex;align-items:center;gap:16px">
+      <div style="font-size:28px">🚛</div>
+      <div style="flex:1">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:2px">${c.nome}</div>
+        <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:var(--accent)">${km != null ? fmtKm(km) : 'Sem leitura'}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Hodômetro atual</div>
+      </div>
+      ${pendentes > 0 ? `<div style="background:var(--red);color:#fff;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700">${pendentes} alerta${pendentes!==1?'s':''}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  // Lista de itens
+  const itensHtml = sorted.length === 0
+    ? `<div style="text-align:center;padding:60px 20px;color:var(--muted)">
+        <div style="font-size:40px;margin-bottom:12px">🔧</div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:6px">Nenhuma manutenção cadastrada</div>
+        <div style="font-size:13px">Clique em "+ Nova Manutenção" para começar</div>
+       </div>`
+    : sorted.map(item => {
+        const st     = getStatus(item);
+        const si     = statusInfo[st];
+        const km     = kmAtualMap[item.caminhao];
+        const proximo  = (item.ultimoKmFeito || 0) + item.intervaloKm;
+        const kmFeito  = item.ultimoKmFeito || 0;
+        const percPct  = km != null ? Math.min(100, Math.max(0, ((km - kmFeito) / item.intervaloKm) * 100)) : 0;
+        const restante = km != null ? proximo - km : null;
+        const camNome  = caminhoes.find(c => c.id === item.caminhao)?.nome || item.caminhao;
+
+        // Histórico de realizações
+        const histHtml = (item.historico || []).slice(-3).reverse().map(h =>
+          `<span style="font-size:10px;color:var(--muted);margin-right:10px">✓ ${h.km.toLocaleString('pt-BR')} km${h.obs ? ' — '+h.obs : ''}</span>`
+        ).join('');
+
+        return `
+        <div style="background:${si.bg};border:1px solid ${si.border};border-radius:var(--r);padding:18px 20px;margin-bottom:12px">
+          <div style="display:flex;align-items:flex-start;gap:14px">
+            <div style="font-size:22px;margin-top:2px">${si.icon}</div>
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+                <span style="font-size:15px;font-weight:700;color:var(--fg)">${item.nome}</span>
+                <span style="background:${si.color};color:#fff;border-radius:10px;padding:2px 10px;font-size:10px;font-weight:700;letter-spacing:.05em">${si.label}</span>
+                <span style="font-size:11px;color:var(--muted)">${camNome}</span>
+              </div>
+              <!-- Barra de progresso -->
+              <div style="background:rgba(0,0,0,.08);border-radius:4px;height:8px;margin-bottom:8px;overflow:hidden">
+                <div style="width:${percPct}%;height:100%;background:${st==='vencido'?'var(--red)':st==='atencao'?'var(--yellow)':'var(--green)'};border-radius:4px;transition:width .3s"></div>
+              </div>
+              <div style="display:flex;gap:20px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-bottom:${histHtml?'8px':'0'}">
+                <span>📏 Intervalo: <strong style="color:var(--fg)">${fmtKm(item.intervaloKm)}</strong></span>
+                <span>🏁 Última realização: <strong style="color:var(--fg)">${item.ultimoKmFeito ? fmtKm(item.ultimoKmFeito) : 'Nunca'}</strong></span>
+                <span>🎯 Próxima em: <strong style="color:${st==='vencido'?'var(--red)':st==='atencao'?'var(--yellow)':'var(--fg)'}">${fmtKm(proximo)}</strong></span>
+                ${km != null ? `<span>${st==='vencido'?'⚠️ Excedido em':'⏳ Restam'}: <strong style="color:${st==='vencido'?'var(--red)':st==='atencao'?'var(--yellow)':'var(--green)'}">${Math.abs(restante).toLocaleString('pt-BR')} km</strong></span>` : ''}
+              </div>
+              ${histHtml ? `<div style="margin-top:4px">${histHtml}</div>` : ''}
+              ${item.obs ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;font-style:italic">${item.obs}</div>` : ''}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+              <button class="btn btn-primary btn-sm" onclick="abrirModalManutFeita('${item.id}')" title="Registrar que a manutenção foi feita">✅ Feita</button>
+              <button class="btn btn-sm" onclick="abrirModalManut('${item.id}')" title="Editar">✏️</button>
+              <button class="btn btn-sm" onclick="excluirManutProg('${item.id}')" title="Excluir" style="color:var(--red)">🗑</button>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+      <div></div>
+      <button class="btn btn-primary" onclick="abrirModalManut()">+ Nova Manutenção</button>
+    </div>
+    ${camAtivos.length > 0 ? `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:24px">${kmCardsHtml}</div>` : ''}
+    <div id="manutLista">${itensHtml}</div>
+  `;
+}
+
+let _editingManutId = null;
+
+function abrirModalManut(id = null) {
+  _editingManutId = id;
+  const overlay = document.getElementById('modalManutOverlay');
+  const titulo  = document.getElementById('modalManutTitulo');
+  // Popula select de caminhões
+  const sel = document.getElementById('manutCaminhao');
+  sel.innerHTML = caminhoes.filter(c => c.ativo).map(c =>
+    `<option value="${c.id}">${c.nome}</option>`
+  ).join('');
+  if (id) {
+    const item = manutencaoProg.find(m => m.id === id);
+    if (!item) return;
+    titulo.textContent = '🔧 Editar Manutenção';
+    document.getElementById('manutId').value         = item.id;
+    document.getElementById('manutNome').value        = item.nome;
+    document.getElementById('manutCaminhao').value    = item.caminhao;
+    document.getElementById('manutIntervalo').value   = item.intervaloKm;
+    document.getElementById('manutUltimoKm').value    = item.ultimoKmFeito || '';
+    document.getElementById('manutAlertaKm').value    = item.alertaKm != null ? item.alertaKm : '';
+    document.getElementById('manutObs').value         = item.obs || '';
+  } else {
+    titulo.textContent = '🔧 Nova Manutenção Programada';
+    document.getElementById('manutId').value         = '';
+    document.getElementById('manutNome').value        = '';
+    document.getElementById('manutIntervalo').value   = '';
+    document.getElementById('manutUltimoKm').value    = '';
+    document.getElementById('manutAlertaKm').value    = '500';
+    document.getElementById('manutObs').value         = '';
+  }
+  overlay.classList.add('open');
+  setTimeout(() => document.getElementById('manutNome').focus(), 80);
+}
+
+function fecharModalManut() {
+  document.getElementById('modalManutOverlay').classList.remove('open');
+}
+
+function salvarManutProg() {
+  const nome      = document.getElementById('manutNome').value.trim();
+  const caminhao  = document.getElementById('manutCaminhao').value;
+  const intervalo = parseInt(document.getElementById('manutIntervalo').value);
+  const ultimoKm  = parseInt(document.getElementById('manutUltimoKm').value) || 0;
+  const alertaKm  = document.getElementById('manutAlertaKm').value !== '' ? parseInt(document.getElementById('manutAlertaKm').value) : null;
+  const obs       = document.getElementById('manutObs').value.trim();
+
+  if (!nome)           { toast('Informe a descrição da manutenção.', 'error'); return; }
+  if (!intervalo || intervalo <= 0) { toast('Informe um intervalo em km válido.', 'error'); return; }
+
+  if (_editingManutId) {
+    manutencaoProg = manutencaoProg.map(m => m.id === _editingManutId
+      ? { ...m, nome, caminhao, intervaloKm: intervalo, ultimoKmFeito: ultimoKm, alertaKm, obs }
+      : m
+    );
+    toast('Manutenção atualizada!', 'success');
+  } else {
+    manutencaoProg.push({
+      id: 'mn_' + Date.now(),
+      nome, caminhao,
+      intervaloKm:   intervalo,
+      ultimoKmFeito: ultimoKm,
+      alertaKm,
+      obs,
+      historico: []
+    });
+    toast('Manutenção cadastrada!', 'success');
+  }
+  fecharModalManut();
+  saveData();
+  renderManutencao();
+}
+
+function excluirManutProg(id) {
+  const item = manutencaoProg.find(m => m.id === id);
+  if (!item) return;
+  if (!confirm(`Excluir "${item.nome}"? Esta ação não pode ser desfeita.`)) return;
+  manutencaoProg = manutencaoProg.filter(m => m.id !== id);
+  saveData();
+  renderManutencao();
+  toast('Manutenção excluída.', 'success');
+}
+
+function abrirModalManutFeita(id) {
+  const item = manutencaoProg.find(m => m.id === id);
+  if (!item) return;
+  document.getElementById('manutFeitaId').value = id;
+  document.getElementById('manutFeitaObs').value = '';
+
+  // Km atual sugerido
+  const camKmAtual = abastecimentos
+    .filter(a => a.caminhao === item.caminhao && a.prod === 'Diesel' && a.km != null)
+    .sort((a, b) => (b.data > a.data ? 1 : -1));
+  const kmSugerido = camKmAtual.length ? camKmAtual[0].km : '';
+  document.getElementById('manutFeitaKm').value = kmSugerido;
+
+  const proximo = (item.ultimoKmFeito || 0) + item.intervaloKm;
+  document.getElementById('manutFeitaInfo').innerHTML = `
+    <strong style="font-size:14px">${item.nome}</strong><br>
+    <span style="color:var(--muted)">Caminhão:</span> ${caminhoes.find(c=>c.id===item.caminhao)?.nome || item.caminhao}<br>
+    <span style="color:var(--muted)">Última realização:</span> ${item.ultimoKmFeito ? item.ultimoKmFeito.toLocaleString('pt-BR') + ' km' : 'Nunca'}<br>
+    <span style="color:var(--muted)">Próxima prevista em:</span> ${proximo.toLocaleString('pt-BR')} km
+  `;
+  document.getElementById('modalManutFeitaOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('manutFeitaKm').focus(), 80);
+}
+
+function fecharModalManutFeita() {
+  document.getElementById('modalManutFeitaOverlay').classList.remove('open');
+}
+
+function confirmarManutFeita() {
+  const id  = document.getElementById('manutFeitaId').value;
+  const km  = parseInt(document.getElementById('manutFeitaKm').value);
+  const obs = document.getElementById('manutFeitaObs').value.trim();
+  if (!km || km <= 0) { toast('Informe o km do hodômetro.', 'error'); return; }
+  manutencaoProg = manutencaoProg.map(m => {
+    if (m.id !== id) return m;
+    const hist = [...(m.historico || []), {
+      km,
+      obs,
+      data: new Date().toISOString().slice(0, 10),
+      registradoPor: currentUser?.email || ''
+    }];
+    return { ...m, ultimoKmFeito: km, historico: hist };
+  });
+  fecharModalManutFeita();
+  saveData();
+  renderManutencao();
+  toast('Manutenção registrada com sucesso!', 'success');
+}
+
+// ═══════════════════════════════════════════════════════════════
 // FROTA — Gestão de Caminhões
 // ═══════════════════════════════════════════════════════════════
 function renderFrota() {
@@ -4754,7 +5089,7 @@ async function salvarBackup(tipo = 'manual') {
   if (!currentUser || currentUser.email !== ADMIN_EMAIL) return;
   const payload = {
     lancamentos, recorrentes, nextId, pagamentosSocios,
-    faturamentos, abastecimentos, caminhoes,
+    faturamentos, abastecimentos, caminhoes, manutencaoProg,
     savedAt: new Date().toISOString(),
     savedBy: currentUser.email,
     tipo
