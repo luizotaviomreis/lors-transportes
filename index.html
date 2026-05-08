@@ -1040,18 +1040,51 @@ textarea { resize: vertical; min-height: 60px; }
         </div>
       </div>
 
-      <!-- ── Faturamento ── -->
+      <!-- ── Faturamento / Excel ── -->
       <div style="border-top:2px solid var(--border);padding-top:28px;margin-bottom:28px">
+
+        <!-- Importar histórico local -->
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:10px">
           <div>
-            <div style="font-family:var(--font-head);font-size:14px;font-weight:700">Importar dados do Excel</div>
+            <div style="font-family:var(--font-head);font-size:14px;font-weight:700">Importar dados do Excel (histórico embutido)</div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px" id="importFatStatus">56 viagens · 82 abastecimentos · fev–mai 2026</div>
             <div style="font-size:11px;color:var(--muted);margin-top:3px" id="fatImportInfo">Nenhuma importação realizada neste dispositivo.</div>
           </div>
           <button class="btn btn-primary btn-sm" id="btnImportFat" onclick="importarFaturamentoHistorico()">⬆ Importar agora</button>
         </div>
-        <div style="font-size:11px;color:var(--muted);background:var(--paper2);border-radius:var(--r);padding:10px 14px">
-          ℹ️ Importa em conjunto: <strong>Faturamento</strong> (viagens, toneladas, valores) e <strong>Abastecimentos</strong> (Diesel e Arla, dia a dia). Seguro re-executar — nunca cria duplicatas.
+        <div style="font-size:11px;color:var(--muted);background:var(--paper2);border-radius:var(--r);padding:10px 14px;margin-bottom:20px">
+          ℹ️ Importa o histórico embutido no app: <strong>Faturamento</strong> (viagens) e <strong>Abastecimentos</strong> (Diesel e Arla). Seguro re-executar — nunca cria duplicatas.
+        </div>
+
+        <!-- Sincronização via Apps Script / Drive -->
+        <div style="font-family:var(--font-head);font-size:13px;font-weight:700;margin-bottom:10px">Sincronização ao vivo — Google Drive (Apps Script)</div>
+
+        <!-- Aviso de reimplantação -->
+        <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:var(--r);padding:12px 16px;margin-bottom:14px;font-size:11px;color:#92400e;line-height:1.6">
+          ⚠️ <strong>Atenção:</strong> A estrutura da planilha foi atualizada (coluna <em>Caminhão</em> adicionada em Faturamento e Abastecimento). Se o sync não funcionar, você precisa <strong>copiar o script abaixo e reimplantar</strong> no Google Apps Script.
+        </div>
+
+        <!-- URL + botões -->
+        <div style="background:var(--blue-lt);border:1px solid #c5d5f5;border-radius:var(--r);padding:14px 18px;margin-bottom:12px">
+          <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:8px">URL do Apps Script (Web App)</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+            <input type="url" id="fatDriveUrl" placeholder="https://script.google.com/macros/s/…/exec"
+              style="flex:1;min-width:260px;padding:7px 12px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--font-mono);font-size:11px">
+            <button class="btn btn-sm" onclick="salvarFatDriveUrl()">Salvar URL</button>
+            <button class="btn btn-sm" onclick="testarFatDriveUrl()">🔍 Testar</button>
+            <button class="btn btn-primary btn-sm" id="fatBtnSync" onclick="sincronizarFaturamentoDrive()">⟳ Sincronizar</button>
+          </div>
+          <div style="font-size:10px;color:var(--muted)" id="fatSyncInfo">Nenhuma sincronização realizada ainda.</div>
+        </div>
+
+        <!-- Script para copiar -->
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+          <button class="btn btn-sm" onclick="mostrarScriptFaturamento()">📋 Ver / Copiar script atualizado</button>
+          <span style="font-size:10px;color:var(--muted)">Cole e reimplante no Google Apps Script após qualquer mudança na planilha</span>
+        </div>
+        <div id="scriptFatBox" style="display:none;margin-top:8px">
+          <pre id="scriptFatCode" style="background:var(--ink);color:#a8e6cf;font-size:10px;padding:14px;border-radius:var(--r);overflow-x:auto;line-height:1.6;white-space:pre-wrap;max-height:300px;overflow-y:auto"></pre>
+          <button class="btn btn-sm" onclick="copiarScriptFat()" style="margin-top:8px">⬇ Copiar script</button>
         </div>
       </div>
 
@@ -1616,6 +1649,13 @@ async function saveDataToFirestore() {
 const PERM_LABELS = { lancamentos:'Lançamentos', dre:'DFC', graficos:'Gráficos', socios:'Sócios', orcamento:'Orçamento' };
 
 async function renderAdmin() {
+  // Preencher URL do Drive salva
+  const fatUrlSalva = localStorage.getItem(FAT_DRIVE_KEY);
+  const fatUrlInput = document.getElementById('fatDriveUrl');
+  if (fatUrlInput && fatUrlSalva) fatUrlInput.value = fatUrlSalva;
+  atualizarFatSyncInfo();
+  atualizarFatImportInfo();
+
   const snap = await db.collection('users').get();
   const users = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
 
