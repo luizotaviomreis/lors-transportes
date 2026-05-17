@@ -1097,28 +1097,6 @@ textarea { resize: vertical; min-height: 60px; }
         </div>
       </div>
 
-      <!-- ── Corrigir Data em Massa ── -->
-      <div style="border-top:2px solid var(--border);padding-top:28px;margin-bottom:32px">
-        <div style="font-family:var(--font-head);font-size:14px;font-weight:700;margin-bottom:4px">🗓 Corrigir Data em Massa</div>
-        <div style="font-size:11px;color:var(--muted);margin-bottom:16px">Altera a data de <strong>todos</strong> os registros de faturamento e abastecimento de uma data para outra. Use para corrigir lançamentos feitos com data errada no Excel.</div>
-        <div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap">
-          <div>
-            <label class="form-label">Data original (a ser corrigida)</label>
-            <input type="date" id="corrigirDataDe" class="form-input" style="width:160px">
-          </div>
-          <div style="font-size:20px;padding-bottom:6px;color:var(--muted)">→</div>
-          <div>
-            <label class="form-label">Nova data correta</label>
-            <input type="date" id="corrigirDataPara" class="form-input" style="width:160px">
-          </div>
-          <button class="btn btn-primary btn-sm" onclick="corrigirDataEmMassa()" style="margin-bottom:2px">Aplicar correção</button>
-        </div>
-        <div id="corrigirDataResult" style="margin-top:10px;font-size:12px;min-height:18px"></div>
-        <div style="margin-top:12px">
-          <button class="btn btn-sm" onclick="limparMarcacoesAlteracao()" style="font-size:11px;color:var(--muted)">🧹 Limpar marcações ⚠️ das tabelas</button>
-        </div>
-      </div>
-
       <!-- ── Backups ── -->
       <div style="border-top:2px solid var(--border);padding-top:28px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px">
@@ -5128,58 +5106,6 @@ function salvarManutProg() {
   fecharModalManut();
   saveData();
   renderManutencao();
-}
-
-function corrigirDataEmMassa() {
-  const de   = document.getElementById('corrigirDataDe').value;
-  const para = document.getElementById('corrigirDataPara').value;
-  const res  = document.getElementById('corrigirDataResult');
-  if (!de || !para)  { res.style.color='var(--red)';   res.textContent='Preencha as duas datas.'; return; }
-  if (de === para)   { res.style.color='var(--muted)'; res.textContent='As datas são iguais, nada a fazer.'; return; }
-  if (!confirm(`Alterar TODOS os registros de ${de.split('-').reverse().join('/')} para ${para.split('-').reverse().join('/')}?\n\nFaturamentos e abastecimentos serão afetados.`)) return;
-
-  let contFat = 0, contAbst = 0;
-  faturamentos.forEach(f => {
-    if (f.data === de) {
-      f._alterado = { campo:'data', de, para, em: new Date().toISOString() };
-      f.data = para;
-      contFat++;
-    }
-  });
-  abastecimentos.forEach(a => {
-    if (a.data === de) {
-      a._alterado = { campo:'data', de, para, em: new Date().toISOString() };
-      a.data = para;
-      contAbst++;
-    }
-  });
-
-  if (contFat === 0 && contAbst === 0) {
-    res.style.color = 'var(--muted)';
-    res.textContent = `Nenhum registro encontrado com data ${de.split('-').reverse().join('/')}.`;
-    return;
-  }
-  faturamentos.sort((a,b) => a.data.localeCompare(b.data));
-  abastecimentos.sort((a,b) => a.data.localeCompare(b.data) || a.prod.localeCompare(b.prod));
-  saveData();
-  renderFaturamento();
-  renderAbastecimentos();
-  res.style.color   = 'var(--green)';
-  res.textContent   = `✓ Corrigido: ${contFat} faturamento${contFat!==1?'s':''} e ${contAbst} abastecimento${contAbst!==1?'s':''} alterados. Registros marcados com ⚠️ nas tabelas.`;
-  toast(`Correção aplicada: ${contFat + contAbst} registro${(contFat+contAbst)!==1?'s':''}!`, 'success');
-}
-
-function limparMarcacoesAlteracao() {
-  let cont = 0;
-  faturamentos.forEach(f => { if (f._alterado) { delete f._alterado; cont++; } });
-  abastecimentos.forEach(a => { if (a._alterado) { delete a._alterado; cont++; } });
-  if (cont === 0) { toast('Nenhuma marcação ⚠️ encontrada.', 'success'); return; }
-  saveData();
-  renderFaturamento();
-  renderAbastecimentos();
-  toast(`${cont} marcação${cont!==1?'ões':''} removida${cont!==1?'s':''}.`, 'success');
-  const res = document.getElementById('corrigirDataResult');
-  if (res) { res.style.color = 'var(--muted)'; res.textContent = `${cont} marcação${cont!==1?'ões':''} ⚠️ removida${cont!==1?'s':''}.`; }
 }
 
 function excluirManutProg(id) {
