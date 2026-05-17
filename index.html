@@ -5187,11 +5187,24 @@ function renderFrota() {
       .filter(l => l.tipo === 'saida' && l.categoria === 'manutencao' && l.caminhao === c.id)
       .reduce((s,l) => s + l.valor, 0);
     const viagens = faturamentos.filter(f => f.caminhao === c.id).length;
-    const km = (() => {
-      const diesel = abastecimentos.filter(a => a.caminhao === c.id && a.prod === 'Diesel' && a.km != null)
-        .sort((a,b) => a.data.localeCompare(b.data));
-      return diesel.length ? diesel[diesel.length-1].km.toLocaleString('pt-BR') + ' km' : '—';
-    })();
+
+    // Hodômetro: registros Diesel com km, ordenados por data
+    const dieselComKm = abastecimentos
+      .filter(a => a.caminhao === c.id && a.prod === 'Diesel' && a.km != null)
+      .sort((a,b) => a.data.localeCompare(b.data));
+    const kmAtualNum  = dieselComKm.length ? dieselComKm[dieselComKm.length-1].km : null;
+    const kmInicialNum= dieselComKm.length ? dieselComKm[0].km : null;
+    const km = kmAtualNum != null ? kmAtualNum.toLocaleString('pt-BR') + ' km' : '—';
+
+    // km/L geral: (km_atual − km_primeiro_registro) ÷ total litros Diesel
+    const kmPercorrida = (kmAtualNum != null && kmInicialNum != null) ? kmAtualNum - kmInicialNum : null;
+    const kmLGeral = (kmPercorrida != null && kmPercorrida > 0 && litrosDiesel > 0)
+      ? kmPercorrida / litrosDiesel : null;
+    const kmLStr  = kmLGeral != null
+      ? kmLGeral.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' km/L'
+      : '—';
+    const kmLColor = kmLGeral != null ? (kmLGeral >= 2.5 ? 'var(--green)' : 'var(--red)') : 'var(--muted)';
+
     const statusCor = c.ativo ? 'var(--green)' : 'var(--muted)';
     const statusBg  = c.ativo ? 'var(--green-lt)' : 'var(--paper2)';
     return `<div style="background:${statusBg};border:2px solid ${statusCor};border-radius:var(--r);padding:20px 24px">
@@ -5208,7 +5221,8 @@ function renderFrota() {
         <div>🟡 Arla total: <strong style="color:var(--accent)">${litrosArla.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0})} L</strong></div>
         <div>📍 Hodômetro: <strong style="color:var(--accent)">${km}</strong></div>
         <div>🛣 Viagens: <strong style="color:var(--ink)">${viagens}</strong></div>
-        <div style="grid-column:1/-1">🔧 Manutenção: <strong style="color:var(--red)">${fmt(custo)}</strong></div>
+        <div>📊 Consumo geral: <strong style="color:${kmLColor}">${kmLStr}</strong></div>
+        <div>🔧 Manutenção: <strong style="color:var(--red)">${fmt(custo)}</strong></div>
       </div>
       ${c.obs ? `<div style="font-size:11px;color:var(--muted);font-style:italic">${c.obs}</div>` : ''}
       <div style="display:flex;gap:8px;margin-top:12px">
@@ -5227,14 +5241,20 @@ function renderFrota() {
         <thead><tr>
           <th>Nome</th><th>Cavalo</th><th>Implementos</th>
           <th class="r">Diesel (L)</th><th class="r">Arla (L)</th><th class="r">Km atual</th>
-          <th class="r">Manutenção</th><th>Status</th><th></th>
+          <th class="r">Consumo</th><th class="r">Manutenção</th><th>Status</th><th></th>
         </tr></thead>
         <tbody>${caminhoes.map(c => {
           const litrosDiesel = abastecimentos.filter(a=>a.caminhao===c.id&&a.prod==='Diesel').reduce((s,a)=>s+a.qtd,0);
           const litrosArla   = abastecimentos.filter(a=>a.caminhao===c.id&&a.prod==='Arla').reduce((s,a)=>s+a.qtd,0);
           const custo  = lancamentos.filter(l=>l.tipo==='saida'&&l.categoria==='manutencao'&&l.caminhao===c.id).reduce((s,l)=>s+l.valor,0);
-          const diesel = abastecimentos.filter(a=>a.caminhao===c.id&&a.prod==='Diesel'&&a.km!=null).sort((a,b)=>a.data.localeCompare(b.data));
-          const kmAtual = diesel.length ? diesel[diesel.length-1].km.toLocaleString('pt-BR')+' km' : '—';
+          const dieselKm = abastecimentos.filter(a=>a.caminhao===c.id&&a.prod==='Diesel'&&a.km!=null).sort((a,b)=>a.data.localeCompare(b.data));
+          const kmAtualN  = dieselKm.length ? dieselKm[dieselKm.length-1].km : null;
+          const kmInicN   = dieselKm.length ? dieselKm[0].km : null;
+          const kmAtual   = kmAtualN != null ? kmAtualN.toLocaleString('pt-BR')+' km' : '—';
+          const kmPerc    = (kmAtualN != null && kmInicN != null) ? kmAtualN - kmInicN : null;
+          const kmL       = (kmPerc != null && kmPerc > 0 && litrosDiesel > 0) ? kmPerc / litrosDiesel : null;
+          const kmLStr    = kmL != null ? kmL.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' km/L' : '—';
+          const kmLColor  = kmL != null ? (kmL >= 2.5 ? 'var(--green)' : 'var(--red)') : 'var(--muted)';
           return `<tr>
             <td style="font-weight:700">${c.nome}</td>
             <td><code style="font-size:11px">${c.placaCavalo||'—'}</code></td>
@@ -5242,6 +5262,7 @@ function renderFrota() {
             <td class="r">${litrosDiesel.toLocaleString('pt-BR',{minimumFractionDigits:0})}</td>
             <td class="r">${litrosArla.toLocaleString('pt-BR',{minimumFractionDigits:0})}</td>
             <td class="r">${kmAtual}</td>
+            <td class="r" style="color:${kmLColor};font-weight:600">${kmLStr}</td>
             <td class="r" style="color:var(--red)">${fmt(custo)}</td>
             <td><span style="font-size:10px;background:${c.ativo?'var(--green-lt)':'var(--paper2)'};color:${c.ativo?'var(--green)':'var(--muted)'};padding:2px 8px;border-radius:10px">${c.ativo?'Ativo':'Inativo'}</span></td>
             <td style="text-align:right;white-space:nowrap">
