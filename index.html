@@ -3794,10 +3794,10 @@ async function verificarDivergenciasDrive() {
     document.getElementById('divergBody').innerHTML = html;
 
     const corrigiveis = _divergCorrecoesPool.length;
-    if (corrigiveis > 0) {
+    if (corrigiveis > 0 || divFat.some(d => d.tipo === 'so_excel')) {
       const btn2 = document.getElementById('btnAplicarCorrecoesDiverg');
       btn2.style.display = '';
-      btn2.textContent   = `✓ Aplicar ${corrigiveis} correção${corrigiveis!==1?'ões':''} do Excel`;
+      btn2.textContent   = `⟳ Sincronizar tudo do Excel agora (${corrigiveis} correção${corrigiveis!==1?'ões':''})`;
     }
 
   } catch(err) {
@@ -3808,32 +3808,10 @@ async function verificarDivergenciasDrive() {
 }
 
 async function aplicarCorrecoesDiverg() {
-  if (_divergCorrecoesPool.length === 0) return;
-  if (!confirm(`Aplicar ${_divergCorrecoesPool.length} correção(ões) do Excel no sistema?\n\nIsso irá atualizar datas e valores divergentes.`)) return;
-
-  let cont = 0;
-  _divergCorrecoesPool.forEach(c => {
-    if (c.tipo === 'fat_data') {
-      const f = faturamentos.find(x => x.id === c.sistemaId);
-      if (f) {
-        f._alterado = { campo:'data', de: f.data, para: c.novaData, em: new Date().toISOString() };
-        f.data = c.novaData;
-        if (c.novosValores.ton   != null) f.ton   = c.novosValores.ton;
-        if (c.novosValores.preco != null) f.preco = c.novosValores.preco;
-        if (c.novosValores.total != null) f.total = c.novosValores.total;
-        cont++;
-      }
-    } else if (c.tipo === 'fat_novo') {
-      const v = c.dadosExcel;
-      faturamentos.push({ id: nextId++, data: v.data, caminhao: v.caminhao||'lors01', ton: v.ton, preco: v.preco, total: v.total });
-      cont++;
-    }
-  });
-  faturamentos.sort((a,b) => a.data.localeCompare(b.data));
-  saveData();
-  renderFaturamento();
+  if (!confirm('Isso irá sincronizar o sistema 100% com o Excel (datas, valores e registros novos). Confirmar?')) return;
   fecharModalDiverg();
-  toast(`✓ ${cont} correção${cont!==1?'ões':''} aplicada${cont!==1?'s':''}! Registros alterados marcados com ⚠️.`, 'success');
+  // Reutiliza o sincronizarFaturamentoDrive que já é "Excel = verdade"
+  await sincronizarFaturamentoDrive(false);
   _divergCorrecoesPool = [];
 }
 
@@ -3872,83 +3850,115 @@ async function sincronizarFaturamentoDrive(silent = false) {
       return;
     }
 
-    // Helper: diferença em dias entre duas datas ISO
-    const diasDiff = (d1, d2) => Math.abs(new Date(d1) - new Date(d2)) / 86400000;
+    // ── Excel é a fonte da verdade ──────────────────────────────────────────
+    // Para cada registro do Excel, encontra o melhor match no sistema
+    // (exact por data ou fuzzy por ton+caminhão ±5 dias) e atualiza tudo.
+    // Registros novos são adicionados. Nada é removido automaticamente.
 
-    // Faturamentos — exact match primeiro, depois fuzzy (data mudou ±5 dias)
-    let adicionados = 0, fatAlterados = 0;
+    const diasDiff = (d1, d2) => Math.abs(new Date(d1) - new Date(d2)) / 86400000;
+    const fatUsados = new Set(); // IDs já pareados nesta rodada
+
+    let fatAdicionados = 0, fatAtualizados = 0;
+
     viagens.forEach(v => {
       const vCam = v.caminhao || 'lors01';
-      const exact = faturamentos.find(f => f.data === v.data && (f.caminhao || 'lors01') === vCam);
-      if (exact) {
-        // Atualizar caminhao se faltava; checar se ton/preco mudaram
-        if (!exact.caminhao && v.caminhao) exact.caminhao = v.caminhao;
-        const camposMudaram = (v.ton != null && Math.abs((exact.ton||0) - v.ton) > 0.001) ||
-                              (v.preco != null && Math.abs((exact.preco||0) - v.preco) > 0.001);
-        if (camposMudaram) {
-          exact._alterado = { campo:'valores', de:`ton=${exact.ton} preco=${exact.preco}`, para:`ton=${v.ton} preco=${v.preco}`, em: new Date().toISOString() };
-          if (v.ton   != null) exact.ton   = v.ton;
-          if (v.preco != null) exact.preco = v.preco;
-          if (v.total != null) exact.total = v.total;
-          fatAlterados++;
-        }
-      } else {
-        // Fuzzy: mesmo caminhao + mesma ton + data até 5 dias diferente
-        const fuzzy = faturamentos.find(f =>
+
+      // 1) Exact match: mesma data + mesmo caminhão
+      let match = faturamentos.find(f =>
+        !fatUsados.has(f.id) &&
+        f.data === v.data &&
+        (f.caminhao || 'lors01') === vCam
+      );
+
+      // 2) Fuzzy: mesmo caminhão + mesma tonelagem + data até 5 dias diferente
+      if (!match) {
+        match = faturamentos.find(f =>
+          !fatUsados.has(f.id) &&
           (f.caminhao || 'lors01') === vCam &&
           v.ton != null && Math.abs((f.ton || 0) - v.ton) < 0.01 &&
           diasDiff(f.data, v.data) <= 5
         );
-        if (fuzzy) {
-          fuzzy._alterado = { campo:'data', de: fuzzy.data, para: v.data, em: new Date().toISOString() };
-          fuzzy.data = v.data;
-          if (v.preco != null) fuzzy.preco = v.preco;
-          if (v.total != null) fuzzy.total = v.total;
-          if (v.caminhao && !fuzzy.caminhao) fuzzy.caminhao = v.caminhao;
-          fatAlterados++;
-        } else {
-          faturamentos.push({ id: nextId++, data: v.data, caminhao: vCam, ton: v.ton, preco: v.preco, total: v.total });
-          adicionados++;
+      }
+
+      if (match) {
+        fatUsados.add(match.id);
+        // Detectar o que mudou para sinalizar
+        const mudou = match.data !== v.data ||
+          (v.ton   != null && Math.abs((match.ton  ||0) - v.ton)   > 0.001) ||
+          (v.preco != null && Math.abs((match.preco||0) - v.preco) > 0.001);
+        if (mudou) {
+          match._alterado = {
+            de: `${match.data} ton=${match.ton} preco=${match.preco}`,
+            para: `${v.data} ton=${v.ton} preco=${v.preco}`,
+            em: new Date().toISOString()
+          };
+          fatAtualizados++;
         }
+        // Sobrescrever com dados do Excel
+        match.data     = v.data;
+        match.caminhao = vCam;
+        if (v.ton   != null) match.ton   = v.ton;
+        if (v.preco != null) match.preco = v.preco;
+        if (v.total != null) match.total = v.total;
+      } else {
+        // Novo registro — não existia no sistema
+        faturamentos.push({ id: nextId++, data: v.data, caminhao: vCam, ton: v.ton, preco: v.preco, total: v.total });
+        fatAdicionados++;
       }
     });
-    if (adicionados > 0 || fatAlterados > 0) faturamentos.sort((a,b) => a.data.localeCompare(b.data));
+    faturamentos.sort((a, b) => a.data.localeCompare(b.data));
 
-    // Abastecimentos — exact match, depois fuzzy (data mudou ±5 dias, mesma qtd)
+    // ── Abastecimentos ──────────────────────────────────────────────────────
+    // Mesma estratégia: Excel sobrescreve campos de data/preço/qtd.
+    // O km do hodômetro (preenchido manualmente no sistema) é preservado
+    // se o Excel não trouxer valor para ele.
+    const abstUsados = new Set();
     let abstAdicionados = 0, abstAtualizados = 0;
+
     const abstDrive = data.abastecimentos || [];
     abstDrive.forEach(a => {
-      const key = a.data + '|' + a.prod + '|' + a.forn;
-      const existente = abastecimentos.find(x => x.data+'|'+x.prod+'|'+x.forn === key);
-      if (!existente) {
-        // Fuzzy: mesmo prod + forn + mesma qtd (±1 L) + data até 5 dias diferente
-        const fuzzy = abastecimentos.find(x =>
+      // 1) Exact match
+      let match = abastecimentos.find(x =>
+        !abstUsados.has(x.data+'|'+x.prod+'|'+x.forn) &&
+        x.data === a.data && x.prod === a.prod && x.forn === a.forn
+      );
+      // 2) Fuzzy: mesmo prod + forn + qtd (±1 L) + data ±5 dias
+      if (!match) {
+        match = abastecimentos.find(x =>
+          !abstUsados.has(x.data+'|'+x.prod+'|'+x.forn) &&
           x.prod === a.prod &&
           x.forn === a.forn &&
           Math.abs((x.qtd || 0) - (a.qtd || 0)) < 1 &&
           diasDiff(x.data, a.data) <= 5
         );
-        if (fuzzy) {
-          fuzzy._alterado = { campo:'data', de: fuzzy.data, para: a.data, em: new Date().toISOString() };
-          fuzzy.data = a.data;
-          if (a.km    != null) fuzzy.km    = a.km;
-          if (a.vUnit != null) fuzzy.vUnit = a.vUnit;
-          if (a.vTotal!= null) fuzzy.vTotal= a.vTotal;
-          if (a.caminhao && !fuzzy.caminhao) fuzzy.caminhao = a.caminhao;
+      }
+
+      if (match) {
+        const chave = match.data+'|'+match.prod+'|'+match.forn;
+        abstUsados.add(chave);
+        const mudou = match.data !== a.data ||
+          (a.vUnit  != null && Math.abs((match.vUnit ||0) - a.vUnit)  > 0.001) ||
+          (a.vTotal != null && Math.abs((match.vTotal||0) - a.vTotal) > 0.01);
+        if (mudou) {
+          match._alterado = { de: match.data, para: a.data, em: new Date().toISOString() };
           abstAtualizados++;
-        } else {
-          abastecimentos.push({ ...a });
-          abstAdicionados++;
         }
+        // Sobrescrever campos do Excel
+        match.data = a.data;
+        if (a.qtd    != null) match.qtd    = a.qtd;
+        if (a.vUnit  != null) match.vUnit  = a.vUnit;
+        if (a.vTotal != null) match.vTotal = a.vTotal;
+        if (a.caminhao)       match.caminhao = a.caminhao;
+        // km do hodômetro: só atualiza se Excel trouxer valor
+        if (a.km != null)     match.km = a.km;
       } else {
-        // Exact match — atualiza km e caminhao se vieram preenchidos do Excel
-        if (a.km != null && existente.km !== a.km) { existente.km = a.km; abstAtualizados++; }
-        if (a.caminhao && !existente.caminhao) existente.caminhao = a.caminhao;
+        abastecimentos.push({ ...a });
+        abstAdicionados++;
       }
     });
-    if (abstAdicionados > 0 || abstAtualizados > 0) abastecimentos.sort((a,b) => a.data.localeCompare(b.data) || a.prod.localeCompare(b.prod));
+    abastecimentos.sort((a, b) => a.data.localeCompare(b.data) || a.prod.localeCompare(b.prod));
 
-    // Salvar sempre (mesmo sem novidades) para garantir persistência
+    // Salvar
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes, manutencaoProg }));
     await saveDataToFirestore();
 
@@ -3960,13 +3970,16 @@ async function sincronizarFaturamentoDrive(silent = false) {
     renderAbastecimentos();
 
     if (!silent) {
-      if (adicionados > 0) {
-        showToast(`✓ ${adicionados} nova${adicionados > 1 ? 's viagens' : ' viagem'} importada${adicionados > 1 ? 's' : ''}! Total: ${faturamentos.length}`, 'success');
+      const partes = [];
+      if (fatAdicionados > 0) partes.push(`${fatAdicionados} nova${fatAdicionados!==1?'s viagens':' viagem'} adicionada${fatAdicionados!==1?'s':''}`);
+      if (fatAtualizados > 0) partes.push(`${fatAtualizados} faturamento${fatAtualizados!==1?'s':''} atualizado${fatAtualizados!==1?'s':''} do Excel`);
+      if (abstAdicionados > 0) partes.push(`${abstAdicionados} abastecimento${abstAdicionados!==1?'s':''} novo${abstAdicionados!==1?'s':''}`);
+      if (abstAtualizados > 0) partes.push(`${abstAtualizados} abastecimento${abstAtualizados!==1?'s':''} atualizado${abstAtualizados!==1?'s':''}`);
+      if (partes.length > 0) {
+        showToast('✓ Sincronizado: ' + partes.join(' · '), 'success');
       } else {
-        showToast(`✓ Já atualizado — ${faturamentos.length} viagens no app`, 'success');
+        showToast(`✓ Tudo em dia — ${faturamentos.length} viagens, nenhuma alteração`, 'success');
       }
-      if (fatAlterados > 0) showToast(`⚠️ ${fatAlterados} faturamento${fatAlterados!==1?'s':''} com alteração detectada — sinalizados na tabela`, 'warning');
-      if (abstAtualizados > 0) showToast(`⚠️ ${abstAtualizados} abastecimento${abstAtualizados!==1?'s':''} com alteração/km atualizado`, 'success');
     }
 
   } catch(err) {
