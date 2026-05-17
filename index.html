@@ -1096,6 +1096,28 @@ textarea { resize: vertical; min-height: 60px; }
         </div>
       </div>
 
+      <!-- ── Corrigir Data em Massa ── -->
+      <div style="border-top:2px solid var(--border);padding-top:28px;margin-bottom:32px">
+        <div style="font-family:var(--font-head);font-size:14px;font-weight:700;margin-bottom:4px">🗓 Corrigir Data em Massa</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:16px">Altera a data de <strong>todos</strong> os registros de faturamento e abastecimento de uma data para outra. Use para corrigir lançamentos feitos com data errada no Excel.</div>
+        <div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap">
+          <div>
+            <label class="form-label">Data original (a ser corrigida)</label>
+            <input type="date" id="corrigirDataDe" class="form-input" style="width:160px">
+          </div>
+          <div style="font-size:20px;padding-bottom:6px;color:var(--muted)">→</div>
+          <div>
+            <label class="form-label">Nova data correta</label>
+            <input type="date" id="corrigirDataPara" class="form-input" style="width:160px">
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="corrigirDataEmMassa()" style="margin-bottom:2px">Aplicar correção</button>
+        </div>
+        <div id="corrigirDataResult" style="margin-top:10px;font-size:12px;min-height:18px"></div>
+        <div style="margin-top:12px">
+          <button class="btn btn-sm" onclick="limparMarcacoesAlteracao()" style="font-size:11px;color:var(--muted)">🧹 Limpar marcações ⚠️ das tabelas</button>
+        </div>
+      </div>
+
       <!-- ── Backups ── -->
       <div style="border-top:2px solid var(--border);padding-top:28px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px">
@@ -3655,43 +3677,84 @@ async function sincronizarFaturamentoDrive(silent = false) {
       return;
     }
 
-    // Faturamentos
-    const datasExistentes = new Set(faturamentos.map(f => f.data));
-    let adicionados = 0;
+    // Helper: diferença em dias entre duas datas ISO
+    const diasDiff = (d1, d2) => Math.abs(new Date(d1) - new Date(d2)) / 86400000;
+
+    // Faturamentos — exact match primeiro, depois fuzzy (data mudou ±5 dias)
+    let adicionados = 0, fatAlterados = 0;
     viagens.forEach(v => {
-      if (!datasExistentes.has(v.data)) {
-        faturamentos.push({ id: nextId++, data: v.data, caminhao: v.caminhao || 'lors01', ton: v.ton, preco: v.preco, total: v.total });
-        adicionados++;
+      const vCam = v.caminhao || 'lors01';
+      const exact = faturamentos.find(f => f.data === v.data && (f.caminhao || 'lors01') === vCam);
+      if (exact) {
+        // Atualizar caminhao se faltava; checar se ton/preco mudaram
+        if (!exact.caminhao && v.caminhao) exact.caminhao = v.caminhao;
+        const camposMudaram = (v.ton != null && Math.abs((exact.ton||0) - v.ton) > 0.001) ||
+                              (v.preco != null && Math.abs((exact.preco||0) - v.preco) > 0.001);
+        if (camposMudaram) {
+          exact._alterado = { campo:'valores', de:`ton=${exact.ton} preco=${exact.preco}`, para:`ton=${v.ton} preco=${v.preco}`, em: new Date().toISOString() };
+          if (v.ton   != null) exact.ton   = v.ton;
+          if (v.preco != null) exact.preco = v.preco;
+          if (v.total != null) exact.total = v.total;
+          fatAlterados++;
+        }
       } else {
-        // Atualizar caminhao em registros já existentes sem esse campo
-        const existente = faturamentos.find(x => x.data === v.data);
-        if (existente && !existente.caminhao && v.caminhao) existente.caminhao = v.caminhao;
+        // Fuzzy: mesmo caminhao + mesma ton + data até 5 dias diferente
+        const fuzzy = faturamentos.find(f =>
+          (f.caminhao || 'lors01') === vCam &&
+          v.ton != null && Math.abs((f.ton || 0) - v.ton) < 0.01 &&
+          diasDiff(f.data, v.data) <= 5
+        );
+        if (fuzzy) {
+          fuzzy._alterado = { campo:'data', de: fuzzy.data, para: v.data, em: new Date().toISOString() };
+          fuzzy.data = v.data;
+          if (v.preco != null) fuzzy.preco = v.preco;
+          if (v.total != null) fuzzy.total = v.total;
+          if (v.caminhao && !fuzzy.caminhao) fuzzy.caminhao = v.caminhao;
+          fatAlterados++;
+        } else {
+          faturamentos.push({ id: nextId++, data: v.data, caminhao: vCam, ton: v.ton, preco: v.preco, total: v.total });
+          adicionados++;
+        }
       }
     });
-    if (adicionados > 0) faturamentos.sort((a,b) => a.data.localeCompare(b.data));
+    if (adicionados > 0 || fatAlterados > 0) faturamentos.sort((a,b) => a.data.localeCompare(b.data));
 
-    // Abastecimentos com km (vindos do Apps Script atualizado)
+    // Abastecimentos — exact match, depois fuzzy (data mudou ±5 dias, mesma qtd)
     let abstAdicionados = 0, abstAtualizados = 0;
     const abstDrive = data.abastecimentos || [];
     abstDrive.forEach(a => {
       const key = a.data + '|' + a.prod + '|' + a.forn;
       const existente = abastecimentos.find(x => x.data+'|'+x.prod+'|'+x.forn === key);
       if (!existente) {
-        abastecimentos.push({ ...a });
-        abstAdicionados++;
-      } else {
-        // Atualiza km e caminhao se vieram preenchidos do Excel
-        if (a.km != null && existente.km !== a.km) {
-          existente.km = a.km;
+        // Fuzzy: mesmo prod + forn + mesma qtd (±1 L) + data até 5 dias diferente
+        const fuzzy = abastecimentos.find(x =>
+          x.prod === a.prod &&
+          x.forn === a.forn &&
+          Math.abs((x.qtd || 0) - (a.qtd || 0)) < 1 &&
+          diasDiff(x.data, a.data) <= 5
+        );
+        if (fuzzy) {
+          fuzzy._alterado = { campo:'data', de: fuzzy.data, para: a.data, em: new Date().toISOString() };
+          fuzzy.data = a.data;
+          if (a.km    != null) fuzzy.km    = a.km;
+          if (a.vUnit != null) fuzzy.vUnit = a.vUnit;
+          if (a.vTotal!= null) fuzzy.vTotal= a.vTotal;
+          if (a.caminhao && !fuzzy.caminhao) fuzzy.caminhao = a.caminhao;
           abstAtualizados++;
+        } else {
+          abastecimentos.push({ ...a });
+          abstAdicionados++;
         }
+      } else {
+        // Exact match — atualiza km e caminhao se vieram preenchidos do Excel
+        if (a.km != null && existente.km !== a.km) { existente.km = a.km; abstAtualizados++; }
         if (a.caminhao && !existente.caminhao) existente.caminhao = a.caminhao;
       }
     });
-    if (abstAdicionados > 0) abastecimentos.sort((a,b) => a.data.localeCompare(b.data) || a.prod.localeCompare(b.prod));
+    if (abstAdicionados > 0 || abstAtualizados > 0) abastecimentos.sort((a,b) => a.data.localeCompare(b.data) || a.prod.localeCompare(b.prod));
 
     // Salvar sempre (mesmo sem novidades) para garantir persistência
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes, manutencaoProg }));
     await saveDataToFirestore();
 
     // Registrar info de última sincronização
@@ -3707,7 +3770,8 @@ async function sincronizarFaturamentoDrive(silent = false) {
       } else {
         showToast(`✓ Já atualizado — ${faturamentos.length} viagens no app`, 'success');
       }
-      if (abstAtualizados > 0) showToast(`✓ ${abstAtualizados} km atualizado${abstAtualizados > 1 ? 's' : ''} nos abastecimentos`, 'success');
+      if (fatAlterados > 0) showToast(`⚠️ ${fatAlterados} faturamento${fatAlterados!==1?'s':''} com alteração detectada — sinalizados na tabela`, 'warning');
+      if (abstAtualizados > 0) showToast(`⚠️ ${abstAtualizados} abastecimento${abstAtualizados!==1?'s':''} com alteração/km atualizado`, 'success');
     }
 
   } catch(err) {
@@ -4001,8 +4065,11 @@ function renderFaturamentoViagem(dados) {
     const q         = getQuinzena(f.data);
     const pago      = dataPgto < hoje;
     const camNome   = caminhaoNome(f.caminhao || 'lors01');
-    return `<tr>
-      <td style="white-space:nowrap">${f.data.split('-').reverse().join('/')}</td>
+    const altBadge  = f._alterado
+      ? ` <span title="Alteração detectada na importação: ${f._alterado.campo === 'data' ? 'data era '+f._alterado.de.split('-').reverse().join('/') : f._alterado.de+' → '+f._alterado.para}" style="color:var(--yellow);cursor:help;font-size:12px">⚠️</span>`
+      : '';
+    return `<tr style="${f._alterado ? 'background:var(--yellow-lt)' : ''}">
+      <td style="white-space:nowrap">${f.data.split('-').reverse().join('/')}${altBadge}</td>
       <td style="font-size:11px;color:var(--muted)">${q === 1 ? '1ª Quinzena' : '2ª Quinzena'}</td>
       <td style="font-size:11px;font-weight:600;color:var(--accent)">${camNome}</td>
       <td class="r">${f.ton.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
@@ -4442,8 +4509,11 @@ function renderAbastecimentos() {
       }
     }
 
-    return `<tr>
-      <td>${fmtData(a.data)}</td>
+    const abstAltBadge = a._alterado
+      ? ` <span title="Alteração detectada: ${a._alterado.campo === 'data' ? 'data era '+a._alterado.de.split('-').reverse().join('/') : a._alterado.de}" style="color:var(--yellow);cursor:help;font-size:11px">⚠️</span>`
+      : '';
+    return `<tr style="${a._alterado ? 'background:var(--yellow-lt)' : ''}">
+      <td>${fmtData(a.data)}${abstAltBadge}</td>
       ${maisDeUmCaminhao ? `<td style="font-size:11px;font-weight:600;color:var(--accent)">${camNome}</td>` : ''}
       <td>${a.forn}</td>
       <td><span style="background:${prodBg};color:${prodColor};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">${a.prod}</span></td>
@@ -4850,6 +4920,58 @@ function salvarManutProg() {
   fecharModalManut();
   saveData();
   renderManutencao();
+}
+
+function corrigirDataEmMassa() {
+  const de   = document.getElementById('corrigirDataDe').value;
+  const para = document.getElementById('corrigirDataPara').value;
+  const res  = document.getElementById('corrigirDataResult');
+  if (!de || !para)  { res.style.color='var(--red)';   res.textContent='Preencha as duas datas.'; return; }
+  if (de === para)   { res.style.color='var(--muted)'; res.textContent='As datas são iguais, nada a fazer.'; return; }
+  if (!confirm(`Alterar TODOS os registros de ${de.split('-').reverse().join('/')} para ${para.split('-').reverse().join('/')}?\n\nFaturamentos e abastecimentos serão afetados.`)) return;
+
+  let contFat = 0, contAbst = 0;
+  faturamentos.forEach(f => {
+    if (f.data === de) {
+      f._alterado = { campo:'data', de, para, em: new Date().toISOString() };
+      f.data = para;
+      contFat++;
+    }
+  });
+  abastecimentos.forEach(a => {
+    if (a.data === de) {
+      a._alterado = { campo:'data', de, para, em: new Date().toISOString() };
+      a.data = para;
+      contAbst++;
+    }
+  });
+
+  if (contFat === 0 && contAbst === 0) {
+    res.style.color = 'var(--muted)';
+    res.textContent = `Nenhum registro encontrado com data ${de.split('-').reverse().join('/')}.`;
+    return;
+  }
+  faturamentos.sort((a,b) => a.data.localeCompare(b.data));
+  abastecimentos.sort((a,b) => a.data.localeCompare(b.data) || a.prod.localeCompare(b.prod));
+  saveData();
+  renderFaturamento();
+  renderAbastecimentos();
+  res.style.color   = 'var(--green)';
+  res.textContent   = `✓ Corrigido: ${contFat} faturamento${contFat!==1?'s':''} e ${contAbst} abastecimento${contAbst!==1?'s':''} alterados. Registros marcados com ⚠️ nas tabelas.`;
+  toast(`Correção aplicada: ${contFat + contAbst} registro${(contFat+contAbst)!==1?'s':''}!`, 'success');
+}
+
+function limparMarcacoesAlteracao() {
+  let cont = 0;
+  faturamentos.forEach(f => { if (f._alterado) { delete f._alterado; cont++; } });
+  abastecimentos.forEach(a => { if (a._alterado) { delete a._alterado; cont++; } });
+  if (cont === 0) { toast('Nenhuma marcação ⚠️ encontrada.', 'success'); return; }
+  saveData();
+  renderFaturamento();
+  renderAbastecimentos();
+  toast(`${cont} marcação${cont!==1?'ões':''} removida${cont!==1?'s':''}.`, 'success');
+  const res = document.getElementById('corrigirDataResult');
+  if (res) { res.style.color = 'var(--muted)'; res.textContent = `${cont} marcação${cont!==1?'ões':''} ⚠️ removida${cont!==1?'s':''}.`; }
 }
 
 function excluirManutProg(id) {
