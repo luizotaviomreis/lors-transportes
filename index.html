@@ -5175,11 +5175,11 @@ function renderFrota() {
   const listEl = document.getElementById('frotaList');
   if (!kpiEl || !listEl) return;
 
-  // ── Calcula km/L real por caminhão ─────────────────────────
+  // ── Calcula L/km real por caminhão ──────────────────────────
   // Percorre pares consecutivos de abastecimentos com km registrado.
-  // Para cada par: km percorrida = km[i] − km[i-1] ÷ litros[i].
-  // Soma tudo: km/L = Σ km_percorrida / Σ litros com km válido.
-  const calcKmL = (camId) => {
+  // Para cada par: km percorrida = km[i] − km[i-1], litros = qtd[i].
+  // L/km = Σ litros / Σ km percorrida.
+  const calcLKm = (camId) => {
     const diesel = abastecimentos
       .filter(a => a.caminhao === camId && a.prod === 'Diesel' && a.km != null)
       .sort((a,b) => a.data.localeCompare(b.data) || a.km - b.km);
@@ -5189,12 +5189,8 @@ function renderFrota() {
       const perc = diesel[i].km - diesel[i-1].km;
       if (perc > 0) { totalKm += perc; totalL += diesel[i].qtd; }
     }
-    return totalL > 0 ? totalKm / totalL : null;
+    return totalKm > 0 ? totalL / totalKm : null;
   };
-
-  const fmtKmL = (val, color) => val != null
-    ? `<strong style="color:${val >= 2.5 ? 'var(--green)' : 'var(--red)'}">${val.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})} km/L</strong>`
-    : '<strong style="color:var(--muted)">—</strong>';
 
   // ── KPI cards por caminhão ──────────────────────────────────
   kpiEl.innerHTML = caminhoes.map(c => {
@@ -5215,11 +5211,11 @@ function renderFrota() {
     const kmAtualNum = dieselComKm.length ? dieselComKm[dieselComKm.length-1].km : null;
     const km = kmAtualNum != null ? kmAtualNum.toLocaleString('pt-BR') + ' km' : '—';
 
-    const kmLGeral = calcKmL(c.id);
-    const kmLStr   = kmLGeral != null
-      ? kmLGeral.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' km/L'
+    const lkmGeral = calcLKm(c.id);
+    const kmLStr   = lkmGeral != null
+      ? lkmGeral.toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3}) + ' L/km'
       : '—';
-    const kmLColor = kmLGeral != null ? (kmLGeral >= 2.5 ? 'var(--green)' : 'var(--red)') : 'var(--muted)';
+    const kmLColor = lkmGeral != null ? (lkmGeral <= 0.42 ? 'var(--green)' : 'var(--red)') : 'var(--muted)';
 
     const statusCor = c.ativo ? 'var(--green)' : 'var(--muted)';
     const statusBg  = c.ativo ? 'var(--green-lt)' : 'var(--paper2)';
@@ -5266,9 +5262,9 @@ function renderFrota() {
           const dieselKm  = abastecimentos.filter(a=>a.caminhao===c.id&&a.prod==='Diesel'&&a.km!=null).sort((a,b)=>a.data.localeCompare(b.data));
           const kmAtualN  = dieselKm.length ? dieselKm[dieselKm.length-1].km : null;
           const kmAtual   = kmAtualN != null ? kmAtualN.toLocaleString('pt-BR')+' km' : '—';
-          const kmL       = calcKmL(c.id);
-          const kmLStr    = kmL != null ? kmL.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' km/L' : '—';
-          const kmLColor  = kmL != null ? (kmL >= 2.5 ? 'var(--green)' : 'var(--red)') : 'var(--muted)';
+          const lkm       = calcLKm(c.id);
+          const kmLStr    = lkm != null ? lkm.toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3})+' L/km' : '—';
+          const kmLColor  = lkm != null ? (lkm <= 0.42 ? 'var(--green)' : 'var(--red)') : 'var(--muted)';
           return `<tr>
             <td style="font-weight:700">${c.nome}</td>
             <td><code style="font-size:11px">${c.placaCavalo||'—'}</code></td>
