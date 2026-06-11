@@ -3895,34 +3895,26 @@ async function sincronizarFaturamentoDrive(silent = false) {
 
     const abstDrive = data.abastecimentos || [];
     abstDrive.forEach(a => {
-      // 1) Exact match
-      let match = abastecimentos.find(x =>
+      // Exact match apenas por data+prod+forn — sem fuzzy para abastecimentos.
+      // Abastecimentos diários com quantidades similares no mesmo posto causariam
+      // pares errados se usássemos tolerância de dias/qtd.
+      const chave = a.data + '|' + a.prod + '|' + a.forn;
+      const match = abastecimentos.find(x =>
         !abstUsados.has(x.data+'|'+x.prod+'|'+x.forn) &&
         x.data === a.data && x.prod === a.prod && x.forn === a.forn
       );
-      // 2) Fuzzy: mesmo prod + forn + qtd (±1 L) + data ±5 dias
-      if (!match) {
-        match = abastecimentos.find(x =>
-          !abstUsados.has(x.data+'|'+x.prod+'|'+x.forn) &&
-          x.prod === a.prod &&
-          x.forn === a.forn &&
-          Math.abs((x.qtd || 0) - (a.qtd || 0)) < 1 &&
-          diasDiff(x.data, a.data) <= 5
-        );
-      }
 
       if (match) {
-        const chave = match.data+'|'+match.prod+'|'+match.forn;
         abstUsados.add(chave);
-        const mudou = match.data !== a.data ||
-          (a.vUnit  != null && Math.abs((match.vUnit ||0) - a.vUnit)  > 0.001) ||
-          (a.vTotal != null && Math.abs((match.vTotal||0) - a.vTotal) > 0.01);
+        const mudou =
+          (a.qtd   != null && Math.abs((match.qtd  ||0) - a.qtd)   > 0.001) ||
+          (a.vUnit != null && Math.abs((match.vUnit ||0) - a.vUnit) > 0.001) ||
+          (a.vTotal!= null && Math.abs((match.vTotal||0) - a.vTotal)> 0.01);
         if (mudou) {
-          match._alterado = { de: match.data, para: a.data, em: new Date().toISOString() };
+          match._alterado = { de: `qtd=${match.qtd}`, para: `qtd=${a.qtd}`, em: new Date().toISOString() };
           abstAtualizados++;
         }
         // Sobrescrever campos do Excel
-        match.data = a.data;
         if (a.qtd    != null) match.qtd    = a.qtd;
         if (a.vUnit  != null) match.vUnit  = a.vUnit;
         if (a.vTotal != null) match.vTotal = a.vTotal;
