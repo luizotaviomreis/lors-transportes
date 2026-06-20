@@ -621,6 +621,9 @@ textarea { resize: vertical; min-height: 60px; }
     <div class="nav-item active" id="navLancamentos" onclick="showPage('lancamentos')">
       <span class="nav-icon">◈</span> Lançamentos
     </div>
+    <div class="nav-item" onclick="showPage('madeira')" id="navMadeira">
+      <span class="nav-icon">🌲</span> Madeira Própria
+    </div>
     <div class="nav-item" onclick="showPage('manutencao')" id="navManutencao">
       <span class="nav-icon">🔧</span> Manutenção
     </div>
@@ -926,6 +929,11 @@ textarea { resize: vertical; min-height: 60px; }
     <!-- ── Manutenção Programada ── -->
     <div id="pageManutencao" style="display:none">
       <div id="manutContent"></div>
+    </div>
+
+    <!-- ── Madeira Própria ── -->
+    <div id="pageMadeira" style="display:none">
+      <div id="madeiraContent"></div>
     </div>
 
     <!-- ── Pagamentos ── -->
@@ -1296,6 +1304,211 @@ textarea { resize: vertical; min-height: 60px; }
       <button class="btn" onclick="fecharModalManutFeita()">Cancelar</button>
       <button class="btn btn-primary" onclick="confirmarManutFeita()">✅ Confirmar</button>
     </div>
+  </div>
+</div>
+</div>
+
+<!-- ── Modal Lote de Madeira ── -->
+<div class="modal-overlay" id="modalLoteOverlay" onclick="if(event.target===this)fecharModalLote()">
+<div class="modal" style="max-width:500px">
+  <div class="modal-title">
+    <span id="modalLoteTitulo">🌲 Novo Lote de Madeira</span>
+    <button class="modal-close" onclick="fecharModalLote()">✕</button>
+  </div>
+  <div class="modal-body" style="display:grid;gap:14px">
+    <input type="hidden" id="loteId">
+    <div>
+      <label class="form-label">Fornecedor / Fazenda *</label>
+      <input class="form-input" id="loteFornecedor" placeholder="Ex: Fazenda São João">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div>
+        <label class="form-label">Espécie *</label>
+        <select class="form-input" id="loteEspecie" onchange="toggleLoteEspecieObs()">
+          <option value="pinus">Pinus</option>
+          <option value="eucalipto">Eucalipto</option>
+          <option value="outro">Outro</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Classificação *</label>
+        <select class="form-input" id="loteClassificacao" onchange="toggleLoteClassObs()">
+          <option value="toras">Toras</option>
+          <option value="processo">Processo</option>
+          <option value="cavacos">Cavacos</option>
+          <option value="outro">Outro</option>
+        </select>
+      </div>
+    </div>
+    <div id="loteEspecieObsRow" style="display:none">
+      <label class="form-label">Especificar espécie</label>
+      <input class="form-input" id="loteEspecieObs" placeholder="Descreva a espécie">
+    </div>
+    <div id="loteClassObsRow" style="display:none">
+      <label class="form-label">Especificar classificação</label>
+      <input class="form-input" id="loteClassObs" placeholder="Descreva a classificação">
+    </div>
+    <div>
+      <label class="form-label">Observações</label>
+      <textarea class="form-input" id="loteObs" rows="2" placeholder="Informações adicionais do lote..."></textarea>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn" onclick="fecharModalLote()">Cancelar</button>
+    <button class="btn btn-primary" onclick="salvarLote()">Salvar Lote</button>
+  </div>
+</div>
+</div>
+
+<!-- ── Modal Carga de Madeira Própria ── -->
+<div class="modal-overlay" id="modalCargaOverlay" onclick="if(event.target===this)fecharModalCarga()">
+<div class="modal" style="max-width:640px;max-height:90vh;overflow-y:auto">
+  <div class="modal-title">
+    <span id="modalCargaTitulo">🚛 Nova Carga de Madeira Própria</span>
+    <button class="modal-close" onclick="fecharModalCarga()">✕</button>
+  </div>
+  <div class="modal-body" style="display:grid;gap:16px">
+    <input type="hidden" id="cargaId">
+
+    <!-- Lote + Data + Volume -->
+    <div style="background:var(--bg-alt);border-radius:var(--r);padding:14px;display:grid;gap:10px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Identificação</div>
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px">
+        <div>
+          <label class="form-label">Lote *</label>
+          <select class="form-input" id="cargaLoteId">
+            <option value="">Selecione um lote...</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Data *</label>
+          <input class="form-input" type="date" id="cargaData">
+        </div>
+        <div>
+          <label class="form-label">Caminhão *</label>
+          <select class="form-input" id="cargaCaminhao"></select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label class="form-label">Volume</label>
+          <input class="form-input" type="number" id="cargaVolume" min="0" step="0.01" placeholder="0,00">
+        </div>
+        <div>
+          <label class="form-label">Unidade</label>
+          <select class="form-input" id="cargaUnidade">
+            <option value="ton">Toneladas (ton)</option>
+            <option value="m3">Metro cúbico (m³)</option>
+            <option value="st">Estéreo (st)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Colheita -->
+    <div style="background:var(--bg-alt);border-radius:var(--r);padding:14px;display:grid;gap:10px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Colheita</div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px">
+        <div>
+          <label class="form-label">Equipe de Colheita</label>
+          <input class="form-input" id="cargaEquipeColheita" placeholder="Nome / empresa responsável">
+        </div>
+        <div>
+          <label class="form-label">Custo R$</label>
+          <input class="form-input" type="number" id="cargaCustoColheita" min="0" step="0.01" placeholder="0,00">
+        </div>
+      </div>
+    </div>
+
+    <!-- Carregamento -->
+    <div style="background:var(--bg-alt);border-radius:var(--r);padding:14px;display:grid;gap:10px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Carregamento</div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px">
+        <div>
+          <label class="form-label">Equipe de Carregamento</label>
+          <input class="form-input" id="cargaEquipeCarreg" placeholder="Nome / empresa responsável">
+        </div>
+        <div>
+          <label class="form-label">Custo R$</label>
+          <input class="form-input" type="number" id="cargaCustoCarreg" min="0" step="0.01" placeholder="0,00">
+        </div>
+      </div>
+    </div>
+
+    <!-- Frete intermediário -->
+    <div style="background:var(--bg-alt);border-radius:var(--r);padding:14px;display:grid;gap:10px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none">
+        <input type="checkbox" id="cargaTemFreteInter" onchange="toggleFreteInter()" style="width:16px;height:16px;accent-color:var(--accent)">
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Frete Intermediário (Fazenda → Depósito)</span>
+      </label>
+      <div id="cargaFreteInterFields" style="display:none;grid-template-columns:2fr 1fr;gap:10px">
+        <div>
+          <label class="form-label">Transportadora / Responsável</label>
+          <input class="form-input" id="cargaTransportadoraInter" placeholder="Nome / empresa">
+        </div>
+        <div>
+          <label class="form-label">Custo R$</label>
+          <input class="form-input" type="number" id="cargaCustoFreteInter" min="0" step="0.01" placeholder="0,00">
+        </div>
+      </div>
+    </div>
+
+    <!-- Transbordo -->
+    <div style="background:var(--bg-alt);border-radius:var(--r);padding:14px;display:grid;gap:10px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none">
+        <input type="checkbox" id="cargaTemTransbordo" onchange="toggleTransbordo()" style="width:16px;height:16px;accent-color:var(--accent)">
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Transbordo no Pátio</span>
+      </label>
+      <div id="cargaTransbordoFields" style="display:none;grid-template-columns:2fr 1fr;gap:10px">
+        <div>
+          <label class="form-label">Responsável pelo Transbordo</label>
+          <input class="form-input" id="cargaRespTransbordo" placeholder="Nome / empresa">
+        </div>
+        <div>
+          <label class="form-label">Custo R$</label>
+          <input class="form-input" type="number" id="cargaCustoTransbordo" min="0" step="0.01" placeholder="0,00">
+        </div>
+      </div>
+    </div>
+
+    <!-- Frete Final -->
+    <div style="background:var(--bg-alt);border-radius:var(--r);padding:14px;display:grid;gap:10px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Frete Final (ao Cliente)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label class="form-label">Custo do Frete LORS R$</label>
+          <input class="form-input" type="number" id="cargaCustoFrete" min="0" step="0.01" placeholder="0,00">
+        </div>
+      </div>
+    </div>
+
+    <!-- Faturamento -->
+    <div style="background:var(--bg-alt);border-radius:var(--r);padding:14px;display:grid;gap:10px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Faturamento</div>
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px">
+        <div>
+          <label class="form-label">Empresa que Emitiu a NF</label>
+          <input class="form-input" id="cargaEmpresaFatura" placeholder="Nome da empresa emissora">
+        </div>
+        <div>
+          <label class="form-label">Nº NF</label>
+          <input class="form-input" id="cargaNfNumero" placeholder="000000">
+        </div>
+        <div>
+          <label class="form-label">Valor NF R$</label>
+          <input class="form-input" type="number" id="cargaValorFatura" min="0" step="0.01" placeholder="0,00">
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <label class="form-label">Observações</label>
+      <textarea class="form-input" id="cargaObs" rows="2" placeholder="Informações adicionais..."></textarea>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn" onclick="fecharModalCarga()">Cancelar</button>
+    <button class="btn btn-primary" onclick="salvarCarga()">Salvar Carga</button>
   </div>
 </div>
 </div>
@@ -1708,10 +1921,12 @@ async function loadDataFromFirestore() {
       abastecimentos   = d.abastecimentos   || abastecimentos;
       caminhoes        = (d.caminhoes && d.caminhoes.length) ? d.caminhoes : caminhoes;
       manutencaoProg   = d.manutencaoProg   || manutencaoProg;
+      lotesMadeira     = d.lotesMadeira     || lotesMadeira;
+      cargasMadeira    = d.cargasMadeira    || cargasMadeira;
       // Normalizar categorias após carga do Firestore
       const migrou = aplicarMigracoes();
       // Salvar cache local (com dados já migrados)
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes, manutencaoProg }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes, manutencaoProg, lotesMadeira, cargasMadeira }));
       // Se houve migração, persistir de volta no Firestore
       if (migrou) saveDataToFirestore();
     }
@@ -1727,7 +1942,7 @@ async function saveDataToFirestore() {
     const badge = document.getElementById('cloudSyncBadge');
     if (badge) { badge.textContent = '☁ salvando…'; badge.style.color = 'var(--yellow)'; }
     await db.collection('appdata').doc('main').set({
-      lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes, manutencaoProg,
+      lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes, manutencaoProg, lotesMadeira, cargasMadeira,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       updatedBy: currentUser.email
     });
@@ -1851,7 +2066,7 @@ async function togglePerm(uid, perm, val) {
 const STORAGE_KEY = 'lors_financeiro_v1';
 
 function saveData() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes, manutencaoProg }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes, manutencaoProg, lotesMadeira, cargasMadeira }));
   saveDataToFirestore();
   if (gdriveConfig.url && gdriveConfig.autoSync !== false) {
     sincronizarGDrive(true);
@@ -1875,7 +2090,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function backupDados() {
-  const data = JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes, manutencaoProg, exportedAt: new Date().toISOString() }, null, 2);
+  const data = JSON.stringify({ lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes, manutencaoProg, lotesMadeira, cargasMadeira, exportedAt: new Date().toISOString() }, null, 2);
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
   a.download = 'lors_backup_' + new Date().toISOString().slice(0, 10) + '.json';
@@ -1902,6 +2117,8 @@ function restaurarDados() {
         abastecimentos   = d.abastecimentos   || [];
         caminhoes        = d.caminhoes        || JSON.parse(JSON.stringify(DEFAULT_CAMINHOES));
         manutencaoProg   = d.manutencaoProg   || [];
+        lotesMadeira     = d.lotesMadeira     || [];
+        cargasMadeira    = d.cargasMadeira    || [];
         nextId = d.nextId || (Math.max(0, ...lancamentos.map(l => l.id)) + 1);
         aplicarMigracoes();
         saveData();
@@ -1955,7 +2172,7 @@ async function sincronizarGDrive(silent = false) {
     const res = await fetch(gdriveConfig.url, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'save', lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes, manutencaoProg })
+      body: JSON.stringify({ action: 'save', lancamentos, recorrentes, nextId, pagamentosSocios, faturamentos, abastecimentos, caminhoes, manutencaoProg, lotesMadeira, cargasMadeira })
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
@@ -1985,6 +2202,8 @@ async function carregarDoGDrive() {
     faturamentos     = json.faturamentos     || faturamentos;
     abastecimentos   = json.abastecimentos   || abastecimentos;
     manutencaoProg   = json.manutencaoProg   || manutencaoProg;
+    lotesMadeira     = json.lotesMadeira     || lotesMadeira;
+    cargasMadeira    = json.cargasMadeira    || cargasMadeira;
     nextId           = json.nextId || (Math.max(0, ...lancamentos.map(l => l.id)) + 1);
     aplicarMigracoes();
     saveData();
@@ -2269,6 +2488,8 @@ let faturamentos     = _stored ? (_stored.faturamentos    ||[]) : [];
 let abastecimentos   = _stored ? (_stored.abastecimentos  ||[]) : [];
 let caminhoes        = _stored ? (_stored.caminhoes       || JSON.parse(JSON.stringify(DEFAULT_CAMINHOES))) : JSON.parse(JSON.stringify(DEFAULT_CAMINHOES));
 let manutencaoProg   = _stored ? (_stored.manutencaoProg  || []) : [];
+let lotesMadeira     = _stored ? (_stored.lotesMadeira   || []) : [];
+let cargasMadeira    = _stored ? (_stored.cargasMadeira  || []) : [];
 let editingCaminhaoId = null;
 let editingId       = null;
 let duplicatingFrom = null; // snapshot original ao duplicar
@@ -2377,6 +2598,7 @@ const pages = {
   abastecimentos: {el:'pageAbastecimentos', title:'Abastecimentos', sub:'Diesel e Arla — registros diários'},
   frota:          {el:'pageFrota',          title:'Frota',          sub:'Cadastro e gestão de caminhões'},
   socios:      {el:'pageSocios',     title:'Pagamento a Sócios',  sub:'Controle de reembolsos para Otávio e Rodrigo'},
+  madeira:     {el:'pageMadeira',    title:'Madeira Própria',       sub:'Controle de lotes, cargas e custos de madeira própria'},
   manutencao:  {el:'pageManutencao', title:'Manutenção Programada', sub:'Revisões e manutenções preventivas por hodômetro'},
   pagamentos:  {el:'pagePagamentos', title:'Pagamentos',          sub:'Extrato de despesas agrupadas por categoria e descrição'},
   orcamento:   {el:'pageOrcamento',  title:'Orçamento de Frete',  sub:'Simulador de custo e margem por viagem'},
@@ -2397,6 +2619,7 @@ function showPage(page) {
   if(page==='abastecimentos') renderAbastecimentos();
   if(page==='frota')         renderFrota();
   if(page==='socios')     renderSocios();
+  if(page==='madeira')    renderMadeira();
   if(page==='manutencao') renderManutencao();
   if(page==='pagamentos') renderPagamentos();
   if(page==='orcamento')  calcOrcamento();
@@ -4246,8 +4469,12 @@ function renderFaturamentoViagem(dados) {
     const altBadge  = f._alterado
       ? ` <span title="Alteração detectada na importação: ${f._alterado.campo === 'data' ? 'data era '+f._alterado.de.split('-').reverse().join('/') : f._alterado.de+' → '+f._alterado.para}" style="color:var(--yellow);cursor:help;font-size:12px">⚠️</span>`
       : '';
+    const tipo = f.tipoCarga || 'terceiro';
+    const tipoBadge = tipo === 'proprio'
+      ? `<span onclick="toggleTipoCarga('${f.data}','${f.caminhao}')" title="Madeira Própria LORS — clique para alternar" style="background:var(--green-lt);color:var(--green);font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;cursor:pointer;margin-left:4px">PR</span>`
+      : `<span onclick="toggleTipoCarga('${f.data}','${f.caminhao}')" title="Madeira de Terceiro — clique para alternar" style="background:var(--bg-alt);color:var(--muted);font-size:10px;font-weight:600;padding:1px 5px;border-radius:3px;cursor:pointer;margin-left:4px">3°</span>`;
     return `<tr style="${f._alterado ? 'background:var(--yellow-lt)' : ''}">
-      <td style="white-space:nowrap">${f.data.split('-').reverse().join('/')}${altBadge}</td>
+      <td style="white-space:nowrap">${f.data.split('-').reverse().join('/')}${altBadge}${tipoBadge}</td>
       <td style="font-size:11px;color:var(--muted)">${q === 1 ? '1ª Quinzena' : '2ª Quinzena'}</td>
       <td style="font-size:11px;font-weight:600;color:var(--accent)">${camNome}</td>
       <td class="r">${f.ton.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
@@ -4272,6 +4499,15 @@ function sortFat(col) {
   if (fatSortCol === col) fatSortAsc = !fatSortAsc;
   else { fatSortCol = col; fatSortAsc = col === 'data' ? false : true; }
   renderFaturamento();
+}
+
+function toggleTipoCarga(data, caminhao) {
+  const fat = faturamentos.find(f => f.data === data && f.caminhao === caminhao);
+  if (!fat) return;
+  fat.tipoCarga = (fat.tipoCarga || 'terceiro') === 'terceiro' ? 'proprio' : 'terceiro';
+  saveData();
+  renderFaturamento();
+  toast(fat.tipoCarga === 'proprio' ? 'Marcado como Madeira Própria (PR)' : 'Marcado como Madeira de Terceiro (3°)', 'success');
 }
 
 function limparFiltrosFat() {
@@ -4909,6 +5145,371 @@ function limparFiltrosPag() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// MADEIRA PRÓPRIA
+// ═══════════════════════════════════════════════════════════════
+
+let madeiraTela = 'lotes'; // 'lotes' | 'cargas'
+let editingLoteId  = null;
+let editingCargaId = null;
+
+function renderMadeira() {
+  const el = document.getElementById('madeiraContent');
+  if (!el) return;
+
+  const totalLotes  = lotesMadeira.length;
+  const totalCargas = cargasMadeira.length;
+  const totalFatura = cargasMadeira.reduce((s,c) => s + (c.valorFatura||0), 0);
+  const totalCusto  = cargasMadeira.reduce((s,c) => s +
+    (c.custoColheita||0) + (c.custoCarreg||0) + (c.custoFreteInter||0) +
+    (c.custoTransbordo||0) + (c.custoFrete||0), 0);
+  const margem = totalFatura - totalCusto;
+
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:22px">
+      <div class="kpi-card">
+        <div class="kpi-label">Lotes Cadastrados</div>
+        <div class="kpi-value">${totalLotes}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Total de Cargas</div>
+        <div class="kpi-value">${totalCargas}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Faturamento Total</div>
+        <div class="kpi-value" style="color:var(--green)">${fmt(totalFatura)}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Custo Total</div>
+        <div class="kpi-value" style="color:var(--red)">${fmt(totalCusto)}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Margem</div>
+        <div class="kpi-value" style="color:${margem>=0?'var(--green)':'var(--red)'}">${fmt(margem)}</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid var(--border)">
+      <button onclick="madeiraTela='lotes';renderMadeira()" style="padding:9px 20px;border:none;background:${madeiraTela==='lotes'?'var(--accent)':'transparent'};color:${madeiraTela==='lotes'?'#fff':'var(--muted)'};font-weight:600;font-size:13px;cursor:pointer;border-radius:var(--r) var(--r) 0 0;transition:.15s">
+        📋 Lotes (${totalLotes})
+      </button>
+      <button onclick="madeiraTela='cargas';renderMadeira()" style="padding:9px 20px;border:none;background:${madeiraTela==='cargas'?'var(--accent)':'transparent'};color:${madeiraTela==='cargas'?'#fff':'var(--muted)'};font-weight:600;font-size:13px;cursor:pointer;border-radius:var(--r) var(--r) 0 0;transition:.15s">
+        🚛 Cargas (${totalCargas})
+      </button>
+    </div>
+
+    ${madeiraTela === 'lotes' ? renderMadeiraLotes() : renderMadeiraCargas()}
+  `;
+}
+
+function especieLabel(e, obs) {
+  if (e === 'pinus') return 'Pinus';
+  if (e === 'eucalipto') return 'Eucalipto';
+  return obs || 'Outro';
+}
+function classLabel(c, obs) {
+  if (c === 'toras') return 'Toras';
+  if (c === 'processo') return 'Processo';
+  if (c === 'cavacos') return 'Cavacos';
+  return obs || 'Outro';
+}
+
+function renderMadeiraLotes() {
+  if (lotesMadeira.length === 0) {
+    return `<div style="text-align:center;padding:48px;color:var(--muted)">
+      <div style="font-size:36px;margin-bottom:12px">🌲</div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:6px">Nenhum lote cadastrado</div>
+      <div style="font-size:12px;margin-bottom:20px">Cadastre um lote para começar a registrar cargas de madeira própria</div>
+      <button class="btn btn-primary" onclick="abrirModalLote()">+ Novo Lote</button>
+    </div>`;
+  }
+
+  const rows = lotesMadeira.map(l => {
+    const nCargas = cargasMadeira.filter(c => c.loteId === l.id).length;
+    const volTotal = cargasMadeira.filter(c => c.loteId === l.id).reduce((s,c) => s + (c.volume||0), 0);
+    const fatTotal = cargasMadeira.filter(c => c.loteId === l.id).reduce((s,c) => s + (c.valorFatura||0), 0);
+    return `<tr>
+      <td style="font-weight:600">${l.fornecedor}</td>
+      <td><span style="background:var(--green-lt);color:var(--green);padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600">${especieLabel(l.especie, l.especieObs)}</span></td>
+      <td><span style="background:var(--bg-alt);padding:2px 8px;border-radius:20px;font-size:11px">${classLabel(l.classificacao, l.classObs)}</span></td>
+      <td class="r">${nCargas}</td>
+      <td class="r">${volTotal > 0 ? volTotal.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—'}</td>
+      <td class="r pos">${fatTotal > 0 ? fmt(fatTotal) : '—'}</td>
+      <td style="font-size:11px;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.obs||''}</td>
+      <td>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm" onclick="editarLote('${l.id}')" title="Editar">✏️</button>
+          <button class="btn btn-sm" onclick="madeiraTela='cargas';renderMadeira()" title="Ver cargas deste lote" style="font-size:11px">🚛 Ver</button>
+          <button class="btn btn-sm" style="color:var(--red)" onclick="excluirLote('${l.id}')" title="Excluir">✕</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  return `<div class="section-header" style="margin-bottom:14px">
+    <div class="section-title">Lotes de Madeira</div>
+    <button class="btn btn-primary btn-sm" onclick="abrirModalLote()">+ Novo Lote</button>
+  </div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr>
+        <th>Fornecedor / Fazenda</th>
+        <th>Espécie</th>
+        <th>Classificação</th>
+        <th class="r">Cargas</th>
+        <th class="r">Volume</th>
+        <th class="r">Faturamento</th>
+        <th>Obs</th>
+        <th></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
+function renderMadeiraCargas() {
+  if (cargasMadeira.length === 0) {
+    return `<div style="text-align:center;padding:48px;color:var(--muted)">
+      <div style="font-size:36px;margin-bottom:12px">🚛</div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:6px">Nenhuma carga registrada</div>
+      <div style="font-size:12px;margin-bottom:20px">Registre as cargas de madeira própria vinculadas a um lote</div>
+      <button class="btn btn-primary" onclick="abrirModalCarga()"${lotesMadeira.length===0?' disabled title="Cadastre um lote primeiro"':''}>+ Nova Carga</button>
+    </div>`;
+  }
+
+  const sorted = [...cargasMadeira].sort((a,b) => b.data.localeCompare(a.data));
+  const rows = sorted.map(c => {
+    const lote = lotesMadeira.find(l => l.id === c.loteId);
+    const custoTotal = (c.custoColheita||0) + (c.custoCarreg||0) +
+      (c.custoFreteInter||0) + (c.custoTransbordo||0) + (c.custoFrete||0);
+    const margem = (c.valorFatura||0) - custoTotal;
+    const etapas = [
+      c.equipeColheita ? '🌲' : null,
+      c.equipeCarreg   ? '📦' : null,
+      c.temFreteInter  ? '🔄' : null,
+      c.temTransbordo  ? '⇄'  : null,
+      c.custoFrete > 0 ? '🚛' : null,
+      c.valorFatura > 0 ? '📄' : null,
+    ].filter(Boolean).join(' ');
+    const camNome = caminhaoNome(c.caminhao||'');
+    return `<tr>
+      <td style="white-space:nowrap;font-size:12px">${c.data ? c.data.split('-').reverse().join('/') : '—'}</td>
+      <td>
+        <div style="font-weight:600;font-size:12px">${lote ? lote.fornecedor : '<em style="color:var(--muted)">Lote removido</em>'}</div>
+        ${lote ? `<div style="font-size:10px;color:var(--muted)">${especieLabel(lote.especie,lote.especieObs)} · ${classLabel(lote.classificacao,lote.classObs)}</div>` : ''}
+      </td>
+      <td style="font-size:11px;color:var(--accent)">${camNome || '—'}</td>
+      <td class="r" style="font-size:12px">${c.volume ? c.volume.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' '+(c.unidade||'ton') : '—'}</td>
+      <td style="font-size:11px;letter-spacing:.08em" title="Etapas registradas">${etapas||'—'}</td>
+      <td class="r" style="font-size:12px;color:var(--red)">${fmt(custoTotal)}</td>
+      <td class="r pos" style="font-size:12px">${c.valorFatura ? fmt(c.valorFatura) : '—'}</td>
+      <td class="r" style="font-size:12px;color:${margem>=0?'var(--green)':'var(--red)'};font-weight:600">${c.valorFatura ? fmt(margem) : '—'}</td>
+      <td style="font-size:10px;color:var(--muted)">${c.empresaFatura||''}</td>
+      <td>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-sm" onclick="editarCarga('${c.id}')" title="Editar">✏️</button>
+          <button class="btn btn-sm" style="color:var(--red)" onclick="excluirCarga('${c.id}')" title="Excluir">✕</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  const totFat  = cargasMadeira.reduce((s,c) => s + (c.valorFatura||0), 0);
+  const totCust = cargasMadeira.reduce((s,c) => s +
+    (c.custoColheita||0)+(c.custoCarreg||0)+(c.custoFreteInter||0)+(c.custoTransbordo||0)+(c.custoFrete||0), 0);
+
+  return `<div class="section-header" style="margin-bottom:14px">
+    <div class="section-title">Cargas de Madeira Própria</div>
+    <button class="btn btn-primary btn-sm" onclick="abrirModalCarga()"${lotesMadeira.length===0?' disabled title="Cadastre um lote primeiro"':''}>+ Nova Carga</button>
+  </div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr>
+        <th>Data</th>
+        <th>Lote / Fornecedor</th>
+        <th>Caminhão</th>
+        <th class="r">Volume</th>
+        <th>Etapas</th>
+        <th class="r">Custo Total</th>
+        <th class="r">Faturado</th>
+        <th class="r">Margem</th>
+        <th>Emitente NF</th>
+        <th></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr style="font-weight:700;border-top:2px solid var(--border)">
+        <td colspan="5" style="font-family:var(--font-head)">${cargasMadeira.length} carga${cargasMadeira.length!==1?'s':''}</td>
+        <td class="r" style="color:var(--red)">${fmt(totCust)}</td>
+        <td class="r pos">${fmt(totFat)}</td>
+        <td class="r" style="color:${(totFat-totCust)>=0?'var(--green)':'var(--red)'};font-size:15px">${fmt(totFat-totCust)}</td>
+        <td colspan="2"></td>
+      </tr></tfoot>
+    </table>
+  </div>`;
+}
+
+// ── Modal Lote ──
+function abrirModalLote(id = null) {
+  editingLoteId = id;
+  const l = id ? lotesMadeira.find(x => x.id === id) : null;
+  document.getElementById('modalLoteTitulo').textContent = l ? '✏️ Editar Lote' : '🌲 Novo Lote de Madeira';
+  document.getElementById('loteId').value          = l?.id || '';
+  document.getElementById('loteFornecedor').value  = l?.fornecedor || '';
+  document.getElementById('loteEspecie').value     = l?.especie || 'pinus';
+  document.getElementById('loteClassificacao').value = l?.classificacao || 'toras';
+  document.getElementById('loteEspecieObs').value  = l?.especieObs || '';
+  document.getElementById('loteClassObs').value    = l?.classObs || '';
+  document.getElementById('loteObs').value         = l?.obs || '';
+  toggleLoteEspecieObs();
+  toggleLoteClassObs();
+  document.getElementById('modalLoteOverlay').style.display = 'flex';
+  setTimeout(() => document.getElementById('loteFornecedor').focus(), 80);
+}
+function fecharModalLote() { document.getElementById('modalLoteOverlay').style.display = 'none'; editingLoteId = null; }
+function toggleLoteEspecieObs() {
+  document.getElementById('loteEspecieObsRow').style.display =
+    document.getElementById('loteEspecie').value === 'outro' ? '' : 'none';
+}
+function toggleLoteClassObs() {
+  document.getElementById('loteClassObsRow').style.display =
+    document.getElementById('loteClassificacao').value === 'outro' ? '' : 'none';
+}
+function salvarLote() {
+  const forn = document.getElementById('loteFornecedor').value.trim();
+  if (!forn) { toast('Informe o fornecedor / fazenda.', 'error'); return; }
+  const obj = {
+    id:            editingLoteId || ('lm_' + Date.now()),
+    fornecedor:    forn,
+    especie:       document.getElementById('loteEspecie').value,
+    especieObs:    document.getElementById('loteEspecieObs').value.trim(),
+    classificacao: document.getElementById('loteClassificacao').value,
+    classObs:      document.getElementById('loteClassObs').value.trim(),
+    obs:           document.getElementById('loteObs').value.trim(),
+    criadoEm:      new Date().toISOString().slice(0,10),
+  };
+  if (editingLoteId) {
+    const idx = lotesMadeira.findIndex(x => x.id === editingLoteId);
+    if (idx >= 0) lotesMadeira[idx] = { ...lotesMadeira[idx], ...obj };
+  } else {
+    lotesMadeira.push(obj);
+  }
+  saveData();
+  fecharModalLote();
+  toast(editingLoteId ? 'Lote atualizado!' : 'Lote cadastrado!', 'success');
+  renderMadeira();
+}
+function editarLote(id) { abrirModalLote(id); }
+function excluirLote(id) {
+  const cargas = cargasMadeira.filter(c => c.loteId === id).length;
+  if (cargas > 0 && !confirm(`Este lote possui ${cargas} carga(s) vinculada(s). Excluir mesmo assim?`)) return;
+  if (!confirm('Excluir este lote?')) return;
+  lotesMadeira = lotesMadeira.filter(l => l.id !== id);
+  saveData();
+  toast('Lote excluído.', 'success');
+  renderMadeira();
+}
+
+// ── Modal Carga ──
+function abrirModalCarga(id = null) {
+  if (lotesMadeira.length === 0) { toast('Cadastre um lote primeiro.', 'error'); return; }
+  editingCargaId = id;
+  const c = id ? cargasMadeira.find(x => x.id === id) : null;
+  document.getElementById('modalCargaTitulo').textContent = c ? '✏️ Editar Carga' : '🚛 Nova Carga de Madeira Própria';
+  document.getElementById('cargaId').value = c?.id || '';
+
+  // Preenche select de lotes
+  const selLote = document.getElementById('cargaLoteId');
+  selLote.innerHTML = '<option value="">Selecione um lote...</option>' +
+    lotesMadeira.map(l => `<option value="${l.id}" ${c?.loteId===l.id?'selected':''}>${l.fornecedor} — ${especieLabel(l.especie,l.especieObs)} / ${classLabel(l.classificacao,l.classObs)}</option>`).join('');
+
+  // Preenche select de caminhões
+  const selCam = document.getElementById('cargaCaminhao');
+  selCam.innerHTML = '<option value="">Selecione...</option>' +
+    caminhoes.map(cam => `<option value="${cam.id}" ${c?.caminhao===cam.id?'selected':''}>${cam.nome || cam.placa}</option>`).join('');
+
+  document.getElementById('cargaData').value              = c?.data || new Date().toISOString().slice(0,10);
+  document.getElementById('cargaVolume').value            = c?.volume || '';
+  document.getElementById('cargaUnidade').value           = c?.unidade || 'ton';
+  document.getElementById('cargaEquipeColheita').value    = c?.equipeColheita || '';
+  document.getElementById('cargaCustoColheita').value     = c?.custoColheita || '';
+  document.getElementById('cargaEquipeCarreg').value      = c?.equipeCarreg || '';
+  document.getElementById('cargaCustoCarreg').value       = c?.custoCarreg || '';
+  document.getElementById('cargaTemFreteInter').checked   = c?.temFreteInter || false;
+  document.getElementById('cargaTransportadoraInter').value = c?.transportadoraInter || '';
+  document.getElementById('cargaCustoFreteInter').value   = c?.custoFreteInter || '';
+  document.getElementById('cargaTemTransbordo').checked   = c?.temTransbordo || false;
+  document.getElementById('cargaRespTransbordo').value    = c?.respTransbordo || '';
+  document.getElementById('cargaCustoTransbordo').value   = c?.custoTransbordo || '';
+  document.getElementById('cargaCustoFrete').value        = c?.custoFrete || '';
+  document.getElementById('cargaEmpresaFatura').value     = c?.empresaFatura || '';
+  document.getElementById('cargaNfNumero').value          = c?.nfNumero || '';
+  document.getElementById('cargaValorFatura').value       = c?.valorFatura || '';
+  document.getElementById('cargaObs').value               = c?.obs || '';
+  toggleFreteInter();
+  toggleTransbordo();
+  document.getElementById('modalCargaOverlay').style.display = 'flex';
+}
+function fecharModalCarga() { document.getElementById('modalCargaOverlay').style.display = 'none'; editingCargaId = null; }
+function toggleFreteInter() {
+  const show = document.getElementById('cargaTemFreteInter').checked;
+  const el = document.getElementById('cargaFreteInterFields');
+  el.style.display = show ? 'grid' : 'none';
+}
+function toggleTransbordo() {
+  const show = document.getElementById('cargaTemTransbordo').checked;
+  const el = document.getElementById('cargaTransbordoFields');
+  el.style.display = show ? 'grid' : 'none';
+}
+function salvarCarga() {
+  const loteId = document.getElementById('cargaLoteId').value;
+  const data   = document.getElementById('cargaData').value;
+  if (!loteId) { toast('Selecione um lote.', 'error'); return; }
+  if (!data)   { toast('Informe a data da carga.', 'error'); return; }
+  const temFreteInter  = document.getElementById('cargaTemFreteInter').checked;
+  const temTransbordo  = document.getElementById('cargaTemTransbordo').checked;
+  const obj = {
+    id:                 editingCargaId || ('cm_' + Date.now()),
+    loteId,
+    data,
+    caminhao:           document.getElementById('cargaCaminhao').value,
+    volume:             parseFloat(document.getElementById('cargaVolume').value)||0,
+    unidade:            document.getElementById('cargaUnidade').value,
+    equipeColheita:     document.getElementById('cargaEquipeColheita').value.trim(),
+    custoColheita:      parseFloat(document.getElementById('cargaCustoColheita').value)||0,
+    equipeCarreg:       document.getElementById('cargaEquipeCarreg').value.trim(),
+    custoCarreg:        parseFloat(document.getElementById('cargaCustoCarreg').value)||0,
+    temFreteInter,
+    transportadoraInter: temFreteInter ? document.getElementById('cargaTransportadoraInter').value.trim() : '',
+    custoFreteInter:    temFreteInter ? parseFloat(document.getElementById('cargaCustoFreteInter').value)||0 : 0,
+    temTransbordo,
+    respTransbordo:     temTransbordo ? document.getElementById('cargaRespTransbordo').value.trim() : '',
+    custoTransbordo:    temTransbordo ? parseFloat(document.getElementById('cargaCustoTransbordo').value)||0 : 0,
+    custoFrete:         parseFloat(document.getElementById('cargaCustoFrete').value)||0,
+    empresaFatura:      document.getElementById('cargaEmpresaFatura').value.trim(),
+    nfNumero:           document.getElementById('cargaNfNumero').value.trim(),
+    valorFatura:        parseFloat(document.getElementById('cargaValorFatura').value)||0,
+    obs:                document.getElementById('cargaObs').value.trim(),
+  };
+  if (editingCargaId) {
+    const idx = cargasMadeira.findIndex(x => x.id === editingCargaId);
+    if (idx >= 0) cargasMadeira[idx] = obj;
+  } else {
+    cargasMadeira.push(obj);
+  }
+  saveData();
+  fecharModalCarga();
+  toast(editingCargaId ? 'Carga atualizada!' : 'Carga registrada!', 'success');
+  renderMadeira();
+}
+function editarCarga(id) { abrirModalCarga(id); }
+function excluirCarga(id) {
+  if (!confirm('Excluir esta carga?')) return;
+  cargasMadeira = cargasMadeira.filter(c => c.id !== id);
+  saveData();
+  toast('Carga excluída.', 'success');
+  renderMadeira();
+}
+
+// ═══════════════════════════════════════════════════════════════
 // MANUTENÇÃO PROGRAMADA
 // ═══════════════════════════════════════════════════════════════
 function renderManutencao() {
@@ -5368,7 +5969,7 @@ async function salvarBackup(tipo = 'manual') {
   if (!currentUser || currentUser.email !== ADMIN_EMAIL) return;
   const payload = {
     lancamentos, recorrentes, nextId, pagamentosSocios,
-    faturamentos, abastecimentos, caminhoes, manutencaoProg,
+    faturamentos, abastecimentos, caminhoes, manutencaoProg, lotesMadeira, cargasMadeira,
     savedAt: new Date().toISOString(),
     savedBy: currentUser.email,
     tipo
