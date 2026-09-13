@@ -3316,13 +3316,36 @@ function renderSocios() {
   // IDs de lançamentos já vinculados a um registro de pagSocio (evita dupla contagem)
   const linkedIds = new Set(pagamentosSocios.map(p => p.lancamentoId).filter(x => x != null));
 
+  // Helper: detecta nome do sócio na descrição (formato "Reembolso Otávio: ..." ou similar)
+  const _socioNaDesc = d => {
+    if (/otávio|otavio/i.test(d||'')) return 'Otávio';
+    if (/rodrigo/i.test(d||''))       return 'Rodrigo';
+    return null;
+  };
+
   // Aportes diretos: receitas com quemPagou = sócio cadastradas pelo form principal
   const aportesLanc = lancamentos.filter(l => l.tipo === 'receita' && (l.quemPagou === 'Otávio' || l.quemPagou === 'Rodrigo') && !linkedIds.has(l.id));
+
+  // Despesas pagas diretamente pelo sócio via form principal (saída, quemPagou = sócio)
+  const despLancDireto = lancamentos.filter(l =>
+    l.tipo === 'saida' &&
+    (l.quemPagou === 'Otávio' || l.quemPagou === 'Rodrigo') &&
+    !linkedIds.has(l.id)
+  );
+
+  // Reembolsos de LORS → sócio via form principal (saída, quemPagou = LORS, descrição menciona sócio)
+  const reembLorsLanc = lancamentos.filter(l =>
+    l.tipo === 'saida' &&
+    l.quemPagou === 'LORS' &&
+    !linkedIds.has(l.id) &&
+    _socioNaDesc(l.descricao) !== null
+  );
 
   // Cards de resumo
   cards.innerHTML = socios.map(s => {
     const totalDesp       = despSocios.filter(l => l.quemPagou === s).reduce((acc, l) => acc + l.valor, 0);
-    const totalReemb      = pagamentosSocios.filter(p => p.socio === s && p.tipo !== 'aporte').reduce((acc, p) => acc + p.valor, 0);
+    const totalReemb      = pagamentosSocios.filter(p => p.socio === s && p.tipo !== 'aporte').reduce((acc, p) => acc + p.valor, 0)
+                          + reembLorsLanc.filter(l => _socioNaDesc(l.descricao) === s).reduce((acc, l) => acc + l.valor, 0);
     const totalAportesMod = pagamentosSocios.filter(p => p.socio === s && p.tipo === 'aporte').reduce((acc, p) => acc + p.valor, 0);
     const totalAportesLanc= aportesLanc.filter(l => l.quemPagou === s).reduce((acc, l) => acc + l.valor, 0);
     const totalAportes    = totalAportesMod + totalAportesLanc;
@@ -3391,11 +3414,36 @@ function renderSocios() {
       <td>${aporteBadge}</td>
       <td>${l.descricao}</td>
       <td class="r pos">${fmt(l.valor)}</td>
-      <td style="text-align:center;color:var(--muted);font-size:11px" title="Editável em Todos">—</td>
+      <td style="text-align:center;color:var(--muted);font-size:11px" title="Editável em Lançamentos">—</td>
     </tr>`
   }));
 
-  const todasLinhas = [...rowsPagSocios, ...rowsAporteLanc].sort((a,b) => b.data.localeCompare(a.data));
+  // Despesas pagas diretamente pelo sócio via form principal → mostrar no histórico
+  const despBadge = `<span style="background:var(--yellow-lt);color:#92400e;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600">Despesa paga</span>`;
+  const rowsDespLancDireto = despLancDireto.map(l => ({
+    data: l.data, html: `<tr>
+      <td>${l.data.split('-').reverse().join('/')}</td>
+      <td><span style="font-weight:600;color:var(--accent)">${l.quemPagou}</span></td>
+      <td>${despBadge}</td>
+      <td>${l.descricao}</td>
+      <td class="r neg">${fmt(l.valor)}</td>
+      <td style="text-align:center;color:var(--muted);font-size:11px" title="Editável em Lançamentos">—</td>
+    </tr>`
+  }));
+
+  // Reembolsos de LORS → sócio via form principal → mostrar como "Reembolso" no histórico
+  const rowsReembLorsLanc = reembLorsLanc.map(l => ({
+    data: l.data, html: `<tr>
+      <td>${l.data.split('-').reverse().join('/')}</td>
+      <td><span style="font-weight:600;color:var(--accent)">${_socioNaDesc(l.descricao)}</span></td>
+      <td>${reembBadge}</td>
+      <td>${l.descricao}</td>
+      <td class="r neg">${fmt(l.valor)}</td>
+      <td style="text-align:center;color:var(--muted);font-size:11px" title="Editável em Lançamentos">—</td>
+    </tr>`
+  }));
+
+  const todasLinhas = [...rowsPagSocios, ...rowsAporteLanc, ...rowsDespLancDireto, ...rowsReembLorsLanc].sort((a,b) => b.data.localeCompare(a.data));
   tbPag.innerHTML = todasLinhas.length === 0
     ? `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Nenhum pagamento registrado</td></tr>`
     : todasLinhas.map(r => r.html).join('');
